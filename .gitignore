@@ -1,2 +1,38 @@
 .claude/
 .superpowers/
+CLAUDE.md
+.claude/
+.superpowers/
+CLAUDE.md
+
+# Python
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Backend local data
+backend/data/*.db
+backend/data/*.sqlite*
+
+# Env files
+.env
+.env.*
+
+# Test / coverage
+.coverage
+.coverage.*
+htmlcov/
+
+# Logs
+*.log
+
+# IDE / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
