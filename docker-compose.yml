@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - JWT_SECRET=change-me-in-production
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - DATABASE_PATH=data/schedule.db
     volumes:
       - backend_data:/app/data
@@ -19,7 +19,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - API_INTERNAL_URL=http://backend:8000
     depends_on:
       - backend
     restart: unless-stopped
