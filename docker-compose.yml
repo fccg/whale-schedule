@@ -4,7 +4,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8080:8000"
+      - "18760:8000"
     environment:
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - DATABASE_PATH=data/schedule.db
@@ -17,7 +17,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "18761:3000"
     environment:
       - API_INTERNAL_URL=http://backend:8000
     depends_on:
