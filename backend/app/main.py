@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.database import close_db
 from app.providers.base import ProviderError
-from app.routers import auth, gpus, instances, agent, budget
+from app.routers import auth, gpus, instances, agent, budget, tests
 
 
 @asynccontextmanager
@@ -59,6 +59,7 @@ app.include_router(gpus.router)
 app.include_router(instances.router)
 app.include_router(agent.router)
 app.include_router(budget.router)
+app.include_router(tests.router)
 
 
 @app.get("/")
