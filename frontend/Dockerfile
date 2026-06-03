@@ -7,8 +7,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG API_INTERNAL_URL=http://backend:8000
-ENV API_INTERNAL_URL=${API_INTERNAL_URL}
+ARG NEXT_PUBLIC_API_URL=http://115.191.43.252:18760
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

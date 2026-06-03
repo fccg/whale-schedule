@@ -8,6 +8,7 @@ services:
     environment:
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - DATABASE_PATH=data/schedule.db
+      - CORS_ORIGIN=http://115.191.43.252:18761
     volumes:
       - backend_data:/app/data
     restart: unless-stopped
@@ -16,6 +17,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://115.191.43.252:18760
+    environment:
+      - NEXT_PUBLIC_API_URL=http://115.191.43.252:18760
     ports:
       - "18761:3000"
     depends_on:

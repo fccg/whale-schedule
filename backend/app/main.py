@@ -1,4 +1,5 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,6 +30,12 @@ async def _degraded_check_loop():
 
 app = FastAPI(title="GPU Scheduling Platform", lifespan=lifespan)
 
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGIN", "http://localhost:3000,http://115.191.43.252:18761").split(",")
+    if origin.strip()
+]
+
 
 @app.exception_handler(ProviderError)
 async def provider_error_handler(request: Request, exc: ProviderError):
@@ -45,12 +52,9 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"error": "INTERNAL_ERROR", "message": "An unexpected error occurred"},
     )
 
-
-import os
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("CORS_ORIGIN", "http://localhost:3000")],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
