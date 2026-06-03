@@ -6,7 +6,7 @@ import type { TestRun } from "@/lib/api";
 
 interface TestReportPanelProps {
   testRuns: TestRun[];
-  onTriggerTest: (type: string) => void;
+  onTriggerTest: () => void;
   loading?: boolean;
 }
 
@@ -15,14 +15,9 @@ export default function TestReportPanel({ testRuns, onTriggerTest, loading }: Te
     <Card className="bg-card border-border">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">性能测试</CardTitle>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" disabled={loading} onClick={() => onTriggerTest("perf")}>
-            运行性能测试
-          </Button>
-          <Button size="sm" variant="outline" disabled={loading} onClick={() => onTriggerTest("connectivity")}>
-            运行连通性测试
-          </Button>
-        </div>
+        <Button size="sm" variant="outline" disabled={loading} onClick={onTriggerTest}>
+          运行性能测试
+        </Button>
       </CardHeader>
       <CardContent>
         {testRuns.length === 0 ? (

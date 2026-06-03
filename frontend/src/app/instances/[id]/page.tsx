@@ -21,6 +21,7 @@ export default function InstanceDetailPage() {
   const instanceId = params.id as string;
   const [dashboard, setDashboard] = useState<InstanceDashboard | null>(null);
   const [testLoading, setTestLoading] = useState(false);
+  const [connectivityLoading, setConnectivityLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<(typeof TABS)[number]>("Telemetry");
 
@@ -44,6 +45,20 @@ export default function InstanceDetailPage() {
     if (!confirm("确认销毁此实例？")) return;
     await api.deleteInstance(instanceId);
     router.push("/instances");
+  };
+
+  const handleRunPerfTest = async () => {
+    setTestLoading(true);
+    await api.triggerTest(instanceId, "perf");
+    setTestLoading(false);
+    load();
+  };
+
+  const handleRunConnectivityTest = async () => {
+    setConnectivityLoading(true);
+    await api.triggerConnectivityTest(instanceId);
+    setConnectivityLoading(false);
+    load();
   };
 
   if (loading) return <div className="max-w-6xl mx-auto px-4 py-8"><p className="text-muted-foreground">加载中...</p></div>;
@@ -158,15 +173,14 @@ export default function InstanceDetailPage() {
           <div className="mt-6 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
             <TestReportPanel
               testRuns={tests_summary}
-              onTriggerTest={async (type) => {
-                setTestLoading(true);
-                await api.triggerTest(instanceId, type);
-                setTestLoading(false);
-                load();
-              }}
+              onTriggerTest={handleRunPerfTest}
               loading={testLoading}
             />
-            <ConnectivityChecklist tests={connectivity_summary} />
+            <ConnectivityChecklist
+              tests={connectivity_summary}
+              onRunTest={handleRunConnectivityTest}
+              loading={connectivityLoading}
+            />
           </div>
         )}
 

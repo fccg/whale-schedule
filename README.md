@@ -238,6 +238,36 @@ docker compose up -d --build
 - 浏览器端 API 地址已固定为公网地址 `115.191.43.252:18760`
 - 后端 CORS 已允许 `http://115.191.43.252:18761`
 
+### 云端更新脚本
+
+为方便频繁更新和重启，仓库已提供统一脚本：
+
+```bash
+chmod +x scripts/appctl.sh
+```
+
+常用命令：
+
+```bash
+# 拉取最新代码并重建前后端
+./scripts/appctl.sh update
+
+# 强制无缓存重建
+./scripts/appctl.sh update --no-cache
+
+# 用当前代码重启服务
+./scripts/appctl.sh restart
+
+# 查看服务状态
+./scripts/appctl.sh status
+
+# 查看日志
+./scripts/appctl.sh logs backend
+./scripts/appctl.sh logs frontend
+```
+
+建议你在云端实例的项目目录中始终通过这个脚本管理服务，避免手动拼接 `docker compose` 命令。
+
 ## 环境变量
 
 后续预计需要以下环境变量：
