@@ -34,7 +34,7 @@ export default function SearchAndFilter({
       </Select>
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>最高 ¥{maxPrice}/h</span>
-        <Slider value={[maxPrice]} onValueChange={(v) => onMaxPriceChange(Array.isArray(v) ? v[0] : v)}
+        <Slider value={[maxPrice]} onValueChange={(v) => onMaxPriceChange(Array.isArray(v) ? (v[0] ?? maxPrice) : v)}
           min={priceMin} max={priceMax} step={1} className="w-32" />
       </div>
     </div>

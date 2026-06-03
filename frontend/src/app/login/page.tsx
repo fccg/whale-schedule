@@ -24,8 +24,8 @@ export default function LoginPage() {
       const res = await fn(username, password);
       setToken(res.token);
       router.push("/");
-    } catch (err: any) {
-      setError(err.message || "操作失败");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "操作失败");
     } finally {
       setLoading(false);
     }

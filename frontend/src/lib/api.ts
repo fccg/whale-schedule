@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 let token: string | null = null;
 
@@ -36,7 +36,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Network error" }));
-    throw new Error(err.message || err.detail || `HTTP ${res.status}`);
+    const detail = err?.detail;
+    const message =
+      err?.message ||
+      detail?.message ||
+      (typeof detail === "string" ? detail : null) ||
+      `HTTP ${res.status}`;
+    throw new Error(message);
   }
   return res.json();
 }
@@ -58,13 +64,15 @@ export const api = {
 
   getGPUs: (params?: Record<string, string>) => {
     const qs = params ? "?" + new URLSearchParams(params).toString() : "";
-    return request<{ gpus: GPUOffering[] }>(`/api/gpus${qs}`);
+    return request<MarketplaceResponse>(`/api/gpus${qs}`);
   },
 
   getGPUDetail: (id: string) => request<GPUOffering>(`/api/gpus/${id}`),
 
+  getLaunchPayload: (id: string) => request<LaunchPayload>(`/api/gpus/${id}/launch`),
+
   createInstance: (data: { gpu_offering_id: string; template?: string; disk_gb?: number; duration_h?: number }) =>
-    request<{ instance: Instance; estimated_cost: number }>("/api/instances", {
+    request<{ instance: Instance; estimated_cost: number; launch_summary: LaunchSummary }>("/api/instances", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -78,6 +86,8 @@ export const api = {
   getInstances: () => request<{ instances: Instance[] }>("/api/instances"),
 
   getInstance: (id: string) => request<{ instance: Instance; metrics: Metric | null }>(`/api/instances/${id}`),
+
+  getInstanceDashboard: (id: string) => request<InstanceDashboard>(`/api/instances/${id}/dashboard`),
 
   getInstanceMetrics: (id: string) =>
     request<{ latest: Metric | null; history: Metric[] }>(`/api/instances/${id}/metrics`),
@@ -107,16 +117,26 @@ export const api = {
 export interface GPUOffering {
   id: string;
   provider: string;
+  host_display_name: string;
   gpu_family: string;
   gpu_model: string;
+  gpu_count: number;
   vram_gb: number;
   cpu_cores: number;
   memory_gb: number;
   disk_gb: number;
+  disk_type: string;
   price_per_hour: number;
   currency: string;
   region: string;
   available: boolean;
+  verified: boolean;
+  reliability_score: number;
+  network_up_mbps: number;
+  network_down_mbps: number;
+  secure_cloud: boolean;
+  max_duration_days: number;
+  badge_tags: string[];
 }
 
 export interface Instance {
@@ -133,6 +153,7 @@ export interface Instance {
   config_json: string;
   created_at: string;
   destroyed_at: string | null;
+  offering?: GPUOffering | null;
 }
 
 export interface Metric {
@@ -181,4 +202,89 @@ export interface ConnectivityTest {
   is_direct: number;
   error_message: string | null;
   timestamp: string;
+}
+
+export interface MarketplaceResponse {
+  items: GPUOffering[];
+  total: number;
+  filters: {
+    families: string[];
+    providers: string[];
+    regions: string[];
+  };
+}
+
+export interface TemplateOption {
+  id: string;
+  label: string;
+  image: string;
+  description: string;
+  highlights: string[];
+  recommended: boolean;
+}
+
+export interface LaunchSummary {
+  price_per_hour: number;
+  estimated_total: number;
+  remaining_budget: number;
+}
+
+export interface LaunchPayload {
+  offering: GPUOffering;
+  templates: TemplateOption[];
+  defaults: {
+    template_id: string;
+    disk_gb: number;
+    duration_h: number;
+  };
+  budget: LaunchSummary;
+  recommended_config: {
+    template: string;
+    disk_gb: number;
+    duration_h: number;
+  };
+}
+
+export interface GpuRuntimeDetail {
+  index: number;
+  utilization: number;
+  vram_percent: number;
+  vram_used_gb: number;
+  vram_total_gb: number;
+  temp_c: number;
+  power_w: number;
+}
+
+export interface RuntimeInfo {
+  uptime_seconds: number;
+  process_count: number;
+  disk_used_gb: number;
+  disk_total_gb: number;
+  volume_used_gb: number | null;
+  volume_total_gb: number | null;
+  driver_version: string;
+  cuda_version: string;
+  pstate: string;
+  gpus: GpuRuntimeDetail[];
+}
+
+export interface ConnectInfo {
+  jupyter_url: string;
+  ssh_host: string;
+  ssh_port: number;
+  docker_image: string;
+  image_runtype: string;
+  env: Record<string, string>;
+  command_preview: string;
+}
+
+export interface InstanceDashboard {
+  instance: Instance;
+  offering: GPUOffering | null;
+  runtime: RuntimeInfo;
+  latest_metric: Metric | null;
+  metric_history: Metric[];
+  connect: ConnectInfo;
+  connectivity_summary: ConnectivityTest[];
+  tests_summary: TestRun[];
 }

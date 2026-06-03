@@ -4,11 +4,12 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from app.middleware.auth import require_auth
 from app.models.instance import create_instance, get_instance, get_user_instances, destroy_instance, update_instance_status
-from app.models.gpu_offering import get_gpu_offering
 from app.models.metric import get_latest_metrics, get_metrics_history
 from app.services.instance_service import start_lifecycle_advance
 from app.services.budget_service import check_budget, log_budget, get_remaining_budget
-from app.providers.mock import MockProvider
+from app.services.provider_registry import get_provider
+from app.services.market_service import get_market_offering
+from app.services.dashboard_service import build_instance_dashboard
 
 router = APIRouter(prefix="/api/instances", tags=["instances"])
 
@@ -22,7 +23,7 @@ class CreateInstanceRequest(BaseModel):
 
 @router.post("")
 async def create(request: Request, body: CreateInstanceRequest, _payload: dict = Depends(require_auth)):
-    offering = await get_gpu_offering(body.gpu_offering_id)
+    offering = await get_market_offering(body.gpu_offering_id)
     if offering is None:
         raise HTTPException(status_code=404, detail={"error": "NOT_FOUND", "message": "GPU offering not found"})
     estimated_total = offering["price_per_hour"] * body.duration_h
@@ -37,7 +38,7 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
         "duration_h": body.duration_h,
     }
     agent_token = secrets.token_hex(16)
-    provider = MockProvider()
+    provider = get_provider(offering["provider"])
     try:
         provider_result = await provider.create_instance(body.gpu_offering_id, config)
         provider_instance_id = provider_result["provider_instance_id"]
@@ -59,13 +60,25 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
     return {
         "instance": instance,
         "estimated_cost": estimated_total,
+        "launch_summary": {
+            "price_per_hour": offering["price_per_hour"],
+            "estimated_total": estimated_total,
+            "remaining_budget": round(await get_remaining_budget(request.state.user_id), 2),
+        },
     }
 
 
 @router.get("")
 async def list_instances(request: Request, _payload: dict = Depends(require_auth)):
     instances = await get_user_instances(request.state.user_id)
-    return {"instances": instances}
+    enriched = []
+    for instance in instances:
+        offering = await get_market_offering(instance["gpu_offering_id"]) if instance.get("gpu_offering_id") else None
+        enriched.append({
+            **instance,
+            "offering": offering,
+        })
+    return {"instances": enriched}
 
 
 @router.get("/{instance_id}")
@@ -82,7 +95,7 @@ async def delete(request: Request, instance_id: str, _payload: dict = Depends(re
     instance = await get_instance(instance_id)
     if instance is None or instance["user_id"] != request.state.user_id:
         raise HTTPException(status_code=404, detail={"error": "NOT_FOUND", "message": "Instance not found"})
-    provider = MockProvider()
+    provider = get_provider(instance["provider"])
     await provider.destroy_instance(instance["provider_instance_id"])
     await destroy_instance(instance_id)
     return {"status": "destroyed"}
@@ -105,7 +118,7 @@ class EstimateRequest(BaseModel):
 
 @router.post("/estimate")
 async def estimate(request: Request, body: EstimateRequest, _payload: dict = Depends(require_auth)):
-    offering = await get_gpu_offering(body.gpu_offering_id)
+    offering = await get_market_offering(body.gpu_offering_id)
     if offering is None:
         raise HTTPException(status_code=404, detail={"error": "NOT_FOUND", "message": "GPU offering not found"})
     estimated_total = offering["price_per_hour"] * body.duration_h
@@ -129,7 +142,7 @@ class BindInstanceRequest(BaseModel):
 @router.post("/bind")
 async def bind_instance(request: Request, body: BindInstanceRequest, _payload: dict = Depends(require_auth)):
     """Bind an existing GPU instance created externally (naguan mode)."""
-    offering = await get_gpu_offering(body.gpu_offering_id)
+    offering = await get_market_offering(body.gpu_offering_id)
     if offering is None:
         raise HTTPException(status_code=404, detail={"error": "NOT_FOUND", "message": "GPU offering not found"})
     config = {
@@ -149,3 +162,12 @@ async def bind_instance(request: Request, body: BindInstanceRequest, _payload: d
     )
     await update_instance_status(instance["id"], status="ready", current_step=6, progress_percent=100.0)
     return {"instance": instance, "agent_token": agent_token}
+
+
+@router.get("/{instance_id}/dashboard")
+async def dashboard(request: Request, instance_id: str, _payload: dict = Depends(require_auth)):
+    instance = await get_instance(instance_id)
+    if instance is None or instance["user_id"] != request.state.user_id:
+        raise HTTPException(status_code=404, detail={"error": "NOT_FOUND", "message": "Instance not found"})
+    payload = await build_instance_dashboard(instance)
+    return payload

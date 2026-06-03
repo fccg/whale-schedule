@@ -1,9 +1,7 @@
 "use client";
 
-import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import { getToken, clearToken } from "@/lib/api";
 import Link from "next/link";
 import "./globals.css";
@@ -39,11 +37,7 @@ export default function RootLayout({
 function Nav() {
   const pathname = usePathname();
   const router = useRouter();
-  const [loggedIn, setLoggedIn] = useState(false);
-
-  useEffect(() => {
-    setLoggedIn(!!getToken());
-  }, [pathname]);
+  const loggedIn = Boolean(getToken());
 
   if (pathname === "/login") return null;
 

@@ -1,57 +1,44 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, getToken } from "@/lib/api";
-import type { Instance, Metric, TestRun, ConnectivityTest } from "@/lib/api";
+import type { InstanceDashboard } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import InstanceStatusBadge from "@/components/InstanceStatusBadge";
-import CircularStatCard from "@/components/CircularStatCard";
+import InstanceHeroBar from "@/components/instance/InstanceHeroBar";
+import TelemetryGauge from "@/components/instance/TelemetryGauge";
+import TelemetryStatTile from "@/components/instance/TelemetryStatTile";
+import GpuTelemetryPanel from "@/components/instance/GpuTelemetryPanel";
 import TelemetryChart from "@/components/TelemetryChart";
 import TestReportPanel from "@/components/TestReportPanel";
 import ConnectivityChecklist from "@/components/ConnectivityChecklist";
 
-const STEP_LABELS = ["", "apt + CUDA Toolkit", "CUDA 13 + cuDNN", "NGC PyTorch 容器", "Codex + Claude CLI", "S3 挂载 + 数据集", "gpu-agent 部署"];
+const TABS = ["Telemetry", "Connect", "Tests", "Logs"] as const;
 
 export default function InstanceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const instanceId = params.id as string;
-  const [instance, setInstance] = useState<Instance | null>(null);
-  const [metrics, setMetrics] = useState<Metric | null>(null);
-  const [history, setHistory] = useState<Metric[]>([]);
-  const [testRuns, setTestRuns] = useState<TestRun[]>([]);
-  const [connectivity, setConnectivity] = useState<ConnectivityTest[]>([]);
+  const [dashboard, setDashboard] = useState<InstanceDashboard | null>(null);
   const [testLoading, setTestLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<(typeof TABS)[number]>("Telemetry");
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
-      const res = await api.getInstance(instanceId);
-      setInstance(res.instance);
-      setMetrics(res.metrics);
-      if (res.instance.status === "ready") {
-        const [testsRes, connRes, metricsRes] = await Promise.all([
-          api.getTests(instanceId).catch(() => ({ test_runs: [] })),
-          api.getConnectivity(instanceId).catch(() => ({ connectivity_tests: [] })),
-          api.getInstanceMetrics(instanceId).catch(() => ({ latest: null, history: [] })),
-        ]);
-        setTestRuns(testsRes.test_runs);
-        setConnectivity(connRes.connectivity_tests);
-        setHistory(metricsRes.history);
-      }
+      const res = await api.getInstanceDashboard(instanceId);
+      setDashboard(res);
     } finally {
       setLoading(false);
     }
-  }
+  }, [instanceId]);
 
   useEffect(() => {
     if (!getToken()) { router.push("/login"); return; }
     load();
     const interval = setInterval(load, 3000);
     return () => clearInterval(interval);
-  }, [instanceId]);
+  }, [instanceId, load, router]);
 
   const handleDestroy = async () => {
     if (!confirm("确认销毁此实例？")) return;
@@ -59,117 +46,118 @@ export default function InstanceDetailPage() {
     router.push("/instances");
   };
 
-  if (loading) return <div className="max-w-5xl mx-auto px-4 py-8"><p className="text-muted-foreground">加载中...</p></div>;
-  if (!instance) return <div className="max-w-5xl mx-auto px-4 py-8"><p className="text-muted-foreground">实例不存在</p></div>;
+  if (loading) return <div className="max-w-6xl mx-auto px-4 py-8"><p className="text-muted-foreground">加载中...</p></div>;
+  if (!dashboard) return <div className="max-w-6xl mx-auto px-4 py-8"><p className="text-muted-foreground">实例不存在</p></div>;
+
+  const { instance, offering, runtime, latest_metric, metric_history, connect, tests_summary, connectivity_summary } = dashboard;
+  const diskText = `${(runtime.disk_used_gb ?? 0).toFixed(0)} GB / ${(runtime.disk_total_gb ?? 0).toFixed(0)} GB`;
+  const volumeText = runtime.volume_total_gb ? `${runtime.volume_used_gb} / ${runtime.volume_total_gb} GB` : "No Volume";
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <button onClick={() => router.back()} className="text-sm text-muted-foreground hover:text-white mb-4 block">
-        &larr; 返回实例列表
-      </button>
+    <div className="min-h-screen bg-[#0b0b0d]">
+      <div className="mx-auto max-w-[1500px] px-4 py-8">
+        <button onClick={() => router.back()} className="mb-4 text-sm text-muted-foreground hover:text-white">
+          &larr; 返回实例列表
+        </button>
 
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl font-bold">实例 {instance.id.slice(0, 12)}</h1>
-            <InstanceStatusBadge status={instance.status} />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Provider: {instance.provider} · GPU Offering: {instance.gpu_offering_id}
-            {instance.last_heartbeat_at && ` · 最近心跳: ${new Date(instance.last_heartbeat_at).toLocaleTimeString("zh-CN")}`}
-          </p>
+        <InstanceHeroBar instance={instance} offering={offering} runtime={runtime} onDestroy={handleDestroy} />
+
+        <div className="mt-6 flex flex-wrap gap-2 border-b border-white/8 pb-3">
+          {TABS.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setTab(item)}
+              className={`rounded-full px-4 py-2 text-sm transition ${
+                tab === item ? "bg-[#8A5CF5] text-white" : "bg-white/6 text-muted-foreground hover:text-white"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
         </div>
-        {instance.status !== "destroyed" && (
-          <Button variant="destructive" size="sm" onClick={handleDestroy}>
-            销毁实例
-          </Button>
+
+        {tab === "Telemetry" && (
+          <div className="mt-6 grid gap-4">
+            <div className="grid gap-4 xl:grid-cols-2">
+              <TelemetryStatTile label="Disk Usage" value={diskText} hint="本地缓存盘" />
+              <TelemetryStatTile label="Volume Usage" value={volumeText} hint="外部卷" />
+            </div>
+            <div className="grid gap-4 xl:grid-cols-4">
+              <TelemetryStatTile label="Uptime" value={`${Math.floor(runtime.uptime_seconds / 3600)}h ${Math.floor((runtime.uptime_seconds % 3600) / 60)}m`} />
+              <TelemetryStatTile label="Processes" value={String(runtime.process_count)} hint="当前容器内活动进程" />
+              <TelemetryGauge
+                label="CPU Load"
+                value={latest_metric?.cpu_percent}
+                sublabel={`${latest_metric?.cpu_percent?.toFixed(0) ?? "--"}%`}
+              />
+              <TelemetryGauge
+                label="Memory"
+                value={latest_metric?.memory_percent}
+                color="#7B8CFF"
+                sublabel={`${latest_metric?.memory_used_gb?.toFixed(1) ?? "--"} / ${latest_metric?.memory_total_gb?.toFixed(1) ?? "--"} GiB`}
+              />
+            </div>
+
+            <GpuTelemetryPanel runtime={runtime} />
+
+            <Card className="border-white/8 bg-[#141414]">
+              <CardHeader>
+                <CardTitle>Telemetry History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TelemetryChart data={metric_history} height={320} />
+              </CardContent>
+            </Card>
+          </div>
         )}
-      </div>
 
-      {instance.status !== "ready" && instance.status !== "destroyed" && instance.status !== "failed" && (
-        <Card className="bg-card border-border mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2 text-sm">
-              <span className="text-muted-foreground">
-                {instance.status === "provisioning" ? "正在分配 GPU 实例..." :
-                 instance.status === "testing" ? "正在运行健康检查..." :
-                 `正在安装环境... ${STEP_LABELS[instance.current_step] || ""}`}
-              </span>
-              <span className="text-[#8A5CF5]">{Math.round(instance.progress_percent)}%</span>
-            </div>
-            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-[#8A5CF5] transition-all duration-1000 rounded-full"
-                style={{ width: `${instance.progress_percent}%` }} />
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        {tab === "Connect" && (
+          <div className="mt-6 grid gap-4 xl:grid-cols-2">
+            <Card className="border-white/8 bg-[#141414]">
+              <CardHeader><CardTitle>Connection</CardTitle></CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Jupyter URL</p>
+                  <p className="text-white">{connect.jupyter_url}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">SSH</p>
+                  <p className="text-white">{connect.ssh_host}:{connect.ssh_port}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Image</p>
+                  <p className="text-white">{connect.docker_image}</p>
+                </div>
+              </CardContent>
+            </Card>
 
-      {instance.status === "failed" && (
-        <Card className="bg-red-500/10 border-red-500/30 mb-6">
-          <CardContent className="p-4">
-            <p className="text-sm text-red-400 font-semibold">启动失败</p>
-            {instance.last_error && <p className="text-sm text-red-300 mt-1">{instance.last_error}</p>}
-          </CardContent>
-        </Card>
-      )}
+            <Card className="border-white/8 bg-[#141414]">
+              <CardHeader><CardTitle>Runtime Meta</CardTitle></CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Image Runtype</p>
+                  <p className="text-white">{connect.image_runtype}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Command Preview</p>
+                  <p className="text-white">{connect.command_preview}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Environment</p>
+                  <pre className="overflow-x-auto rounded-xl bg-black/20 p-3 text-xs text-white">
+                    {JSON.stringify(connect.env, null, 2)}
+                  </pre>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-      {instance.status === "degraded" && (
-        <Card className="bg-orange-500/10 border-orange-500/30 mb-6">
-          <CardContent className="p-4">
-            <p className="text-sm text-orange-400">
-              监控失联 — 最近心跳: {instance.last_heartbeat_at ? new Date(instance.last_heartbeat_at).toLocaleTimeString("zh-CN") : "无"}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {metrics && (
-        <Card className="bg-card border-border mb-6">
-          <CardHeader><CardTitle className="text-lg">资源监控</CardTitle></CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-8 justify-center">
-              <CircularStatCard label="CPU" value={metrics.cpu_percent} color="#8A5CF5" />
-              <CircularStatCard label="内存" value={metrics.memory_percent} color="#60A5FA" />
-              <CircularStatCard label="GPU" value={metrics.gpu_util_percent} color="#34D399" />
-              <CircularStatCard label="显存" value={metrics.gpu_vram_percent} color="#F472B6" />
-            </div>
-            <div className="grid grid-cols-4 gap-4 mt-6 text-center text-sm">
-              <div>
-                <span className="text-muted-foreground">内存已用</span>
-                <p className="text-white font-semibold">{metrics.memory_used_gb?.toFixed(1)} / {metrics.memory_total_gb?.toFixed(0)} GB</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">磁盘已用</span>
-                <p className="text-white font-semibold">{metrics.disk_used_gb?.toFixed(1)} / {metrics.disk_total_gb?.toFixed(0)} GB</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">上传</span>
-                <p className="text-white font-semibold">{metrics.net_up_mbps?.toFixed(1)} Mbps</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">下载</span>
-                <p className="text-white font-semibold">{metrics.net_down_mbps?.toFixed(1)} Mbps</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {history.length > 0 && (
-        <Card className="bg-card border-border mb-6">
-          <CardHeader><CardTitle className="text-lg">监控历史</CardTitle></CardHeader>
-          <CardContent>
-            <TelemetryChart data={history} />
-          </CardContent>
-        </Card>
-      )}
-
-      {instance.status === "ready" && (
-        <>
-          <div className="mb-6">
+        {tab === "Tests" && (
+          <div className="mt-6 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
             <TestReportPanel
-              testRuns={testRuns}
+              testRuns={tests_summary}
               onTriggerTest={async (type) => {
                 setTestLoading(true);
                 await api.triggerTest(instanceId, type);
@@ -178,22 +166,28 @@ export default function InstanceDetailPage() {
               }}
               loading={testLoading}
             />
+            <ConnectivityChecklist tests={connectivity_summary} />
           </div>
-          <div className="mb-6">
-            <ConnectivityChecklist tests={connectivity} />
-          </div>
-        </>
-      )}
+        )}
 
-      <Card className="bg-card border-border">
-        <CardHeader><CardTitle className="text-lg">实例信息</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-2 gap-2 text-sm">
-          <div className="text-muted-foreground">实例 ID: <span className="text-white font-mono">{instance.id}</span></div>
-          <div className="text-muted-foreground">状态: <InstanceStatusBadge status={instance.status} /></div>
-          <div className="text-muted-foreground">Provider: <span className="text-white">{instance.provider}</span></div>
-          <div className="text-muted-foreground">创建时间: <span className="text-white">{new Date(instance.created_at).toLocaleString("zh-CN")}</span></div>
-        </CardContent>
-      </Card>
+        {tab === "Logs" && (
+          <Card className="mt-6 border-white/8 bg-[#141414]">
+            <CardHeader><CardTitle>Lifecycle / Agent Logs</CardTitle></CardHeader>
+            <CardContent className="space-y-4 text-sm text-muted-foreground">
+              <div className="rounded-2xl border border-white/6 bg-black/20 p-4">
+                <p className="text-white">状态: {instance.status}</p>
+                <p className="mt-2">当前进度: {Math.round(instance.progress_percent)}%</p>
+                <p className="mt-2">最后错误: {instance.last_error || "无"}</p>
+              </div>
+              <div className="rounded-2xl border border-white/6 bg-black/20 p-4">
+                <p>Agent heartbeat: {instance.last_heartbeat_at || "未收到"}</p>
+                <p className="mt-2">Provider instance id: {instance.provider_instance_id}</p>
+                <p className="mt-2">创建时间: {new Date(instance.created_at).toLocaleString("zh-CN")}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, getToken } from "@/lib/api";
 import type { Instance } from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
 import InstanceStatusBadge from "@/components/InstanceStatusBadge";
 
 export default function InstancesPage() {
@@ -26,16 +25,16 @@ export default function InstancesPage() {
     load();
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [router]);
 
-  if (loading) return <div className="max-w-5xl mx-auto px-4 py-8"><p className="text-muted-foreground">加载中...</p></div>;
+  if (loading) return <div className="max-w-6xl mx-auto px-4 py-8"><p className="text-muted-foreground">加载中...</p></div>;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">我的实例</h1>
-          <p className="text-muted-foreground">管理和监控您的 GPU 实例</p>
+          <h1 className="mb-2 text-3xl font-semibold">我的实例</h1>
+          <p className="text-muted-foreground">查看运行状态、监控链路和测试结果</p>
         </div>
       </div>
 
@@ -47,34 +46,41 @@ export default function InstancesPage() {
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="overflow-hidden rounded-2xl border border-white/8 bg-[#141414]">
+          <div className="grid grid-cols-[1.6fr_1fr_1fr_0.8fr_1fr] gap-4 border-b border-white/8 px-5 py-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            <span>实例</span>
+            <span>GPU / Provider</span>
+            <span>最近心跳</span>
+            <span>进度</span>
+            <span>状态</span>
+          </div>
           {instances.map((inst) => (
-            <Card
+            <button
               key={inst.id}
-              className="bg-card border-border hover:border-[#8A5CF5]/50 transition-colors cursor-pointer"
+              className="grid w-full grid-cols-[1.6fr_1fr_1fr_0.8fr_1fr] gap-4 border-b border-white/6 px-5 py-5 text-left transition last:border-b-0 hover:bg-white/[0.03]"
               onClick={() => router.push(`/instances/${inst.id}`)}
             >
-              <CardContent className="p-5 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="font-mono text-sm text-muted-foreground">{inst.id.slice(0, 8)}</span>
-                    <InstanceStatusBadge status={inst.status} />
-                    {inst.status === "bootstrapping" && (
-                      <span className="text-xs text-muted-foreground">步骤 {inst.current_step}/6</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    创建于 {new Date(inst.created_at).toLocaleString("zh-CN")}
-                    {inst.last_heartbeat_at && ` · 最近心跳: ${new Date(inst.last_heartbeat_at).toLocaleTimeString("zh-CN")}`}
-                  </p>
+              <div>
+                <div className="mb-1 flex items-center gap-3">
+                  <span className="font-mono text-sm text-white">{inst.id.slice(0, 8)}</span>
+                  <span className="text-sm text-muted-foreground">{inst.provider_instance_id}</span>
                 </div>
-                <div className="text-right">
-                  <span className={`text-sm font-semibold ${inst.status === "ready" ? "text-green-400" : "text-muted-foreground"}`}>
-                    {inst.progress_percent > 0 ? `${Math.round(inst.progress_percent)}%` : ""}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+                <p className="text-xs text-muted-foreground">
+                  创建于 {new Date(inst.created_at).toLocaleString("zh-CN")}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-white">{inst.offering?.gpu_model ?? inst.gpu_offering_id}</p>
+                <p className="text-xs text-muted-foreground">{inst.offering?.provider ?? inst.provider}</p>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {inst.last_heartbeat_at ? new Date(inst.last_heartbeat_at).toLocaleTimeString("zh-CN") : "尚未上报"}
+              </div>
+              <div className="text-sm font-semibold text-white">{Math.round(inst.progress_percent)}%</div>
+              <div className="flex items-center justify-start">
+                <InstanceStatusBadge status={inst.status} />
+              </div>
+            </button>
           ))}
         </div>
       )}
