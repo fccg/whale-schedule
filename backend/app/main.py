@@ -10,8 +10,21 @@ from app.routers import auth, gpus, instances, agent, budget
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    degraded_task = asyncio.create_task(_degraded_check_loop())
     yield
+    degraded_task.cancel()
     await close_db()
+
+
+async def _degraded_check_loop():
+    await asyncio.sleep(5)
+    while True:
+        try:
+            from app.services.instance_service import check_degraded_instances
+            await check_degraded_instances()
+        except Exception:
+            pass
+        await asyncio.sleep(15)
 
 
 app = FastAPI(title="GPU Scheduling Platform", lifespan=lifespan)

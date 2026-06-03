@@ -8,6 +8,7 @@ from app.models.gpu_offering import get_gpu_offering
 from app.models.metric import get_latest_metrics, get_metrics_history
 from app.services.instance_service import start_lifecycle_advance
 from app.services.budget_service import check_budget, log_budget
+from app.providers.mock import MockProvider
 
 router = APIRouter(prefix="/api/instances", tags=["instances"])
 
@@ -36,13 +37,22 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
         "duration_h": body.duration_h,
     }
     agent_token = secrets.token_hex(16)
+    provider = MockProvider()
+    try:
+        provider_result = await provider.create_instance(body.gpu_offering_id, config)
+        provider_instance_id = provider_result["provider_instance_id"]
+    except Exception as e:
+        raise HTTPException(status_code=502, detail={
+            "error": "PROVIDER_ERROR",
+            "message": f"Provider failed to create instance: {str(e)}",
+        })
     instance = await create_instance(
         user_id=request.state.user_id,
         provider=offering["provider"],
         gpu_offering_id=body.gpu_offering_id,
         config_json=json.dumps(config),
         agent_token=agent_token,
-        provider_instance_id=f"mock-{secrets.token_hex(4)}",
+        provider_instance_id=provider_instance_id,
     )
     await log_budget(request.state.user_id, instance["id"], "create", estimated_total)
     start_lifecycle_advance(instance["id"])
@@ -72,6 +82,8 @@ async def delete(request: Request, instance_id: str, _payload: dict = Depends(re
     instance = await get_instance(instance_id)
     if instance is None or instance["user_id"] != request.state.user_id:
         raise HTTPException(status_code=404, detail={"error": "NOT_FOUND", "message": "Instance not found"})
+    provider = MockProvider()
+    await provider.destroy_instance(instance["provider_instance_id"])
     await destroy_instance(instance_id)
     return {"status": "destroyed"}
 
