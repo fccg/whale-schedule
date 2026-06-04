@@ -1,4 +1,5 @@
 import json
+import logging
 import secrets
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
@@ -7,10 +8,11 @@ from app.models.instance import create_instance, get_instance, get_user_instance
 from app.models.metric import get_latest_metrics, get_metrics_history
 from app.services.instance_service import start_lifecycle_advance
 from app.services.budget_service import check_budget, log_budget, get_remaining_budget
-from app.services.provider_registry import get_provider
+from app.services.provider_registry import get_provider, is_provider_enabled
 from app.services.market_service import get_market_offering
 from app.services.dashboard_service import build_instance_dashboard
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/instances", tags=["instances"])
 
 
@@ -26,19 +28,36 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
     offering = await get_market_offering(body.gpu_offering_id)
     if offering is None:
         raise HTTPException(status_code=404, detail={"error": "NOT_FOUND", "message": "GPU offering not found"})
+
+    provider_name = offering["provider"]
+    if not is_provider_enabled(provider_name):
+        raise HTTPException(status_code=400, detail={
+            "error": "PROVIDER_DISABLED",
+            "message": f"Provider {provider_name} is not enabled",
+        })
+
     estimated_total = offering["price_per_hour"] * body.duration_h
     if not await check_budget(request.state.user_id, estimated_total):
         raise HTTPException(status_code=422, detail={
             "error": "BUDGET_EXCEEDED",
             "message": f"Estimated cost ¥{estimated_total:.2f} exceeds remaining budget",
         })
+
+    metadata = offering.get("metadata", {})
     config = {
         "template": body.template,
         "disk_gb": body.disk_gb,
         "duration_h": body.duration_h,
+        "gpu_spec_uuid": metadata.get("gpu_spec_uuid", ""),
+        "image_uuid": metadata.get("image_uuid", ""),
+        "cuda_v_from": metadata.get("cuda_v_from", 113),
+        "gpu_amount": metadata.get("gpu_amount", 1),
+        "instance_name": f"schedule-{body.gpu_offering_id[:12]}",
+        "start_command": "sleep 1",
     }
     agent_token = secrets.token_hex(16)
-    provider = get_provider(offering["provider"])
+    provider = get_provider(provider_name)
+
     try:
         provider_result = await provider.create_instance(body.gpu_offering_id, config)
         provider_instance_id = provider_result["provider_instance_id"]
@@ -47,18 +66,41 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
             "error": "PROVIDER_ERROR",
             "message": f"Provider failed to create instance: {str(e)}",
         })
+
     instance = await create_instance(
         user_id=request.state.user_id,
-        provider=offering["provider"],
+        provider=provider_name,
         gpu_offering_id=body.gpu_offering_id,
         config_json=json.dumps(config),
         agent_token=agent_token,
         provider_instance_id=provider_instance_id,
+        ssh_host=provider_result.get("ssh_host"),
+        ssh_port=provider_result.get("ssh_port"),
+        connect_url=provider_result.get("connect_url"),
+        jupyter_url=provider_result.get("jupyter_url"),
+        hourly_price=provider_result.get("hourly_price") or offering["price_per_hour"],
+        region=provider_result.get("region") or offering.get("region"),
     )
+
     await log_budget(request.state.user_id, instance["id"], "create", estimated_total)
     start_lifecycle_advance(instance["id"])
+
+    try:
+        snapshot = await provider.get_instance(provider_instance_id)
+        await update_instance_status(
+            instance["id"], status=instance["status"],
+            ssh_host=snapshot.get("ssh_host"),
+            ssh_port=snapshot.get("ssh_port"),
+            connect_url=snapshot.get("connect_url"),
+            jupyter_url=snapshot.get("jupyter_url"),
+            hourly_price=snapshot.get("hourly_price"),
+            region=snapshot.get("region"),
+        )
+    except Exception:
+        logger.warning("Failed to enrich instance with snapshot info", exc_info=True)
+
     return {
-        "instance": instance,
+        "instance": await get_instance(instance["id"]),
         "estimated_cost": estimated_total,
         "launch_summary": {
             "price_per_hour": offering["price_per_hour"],
@@ -95,8 +137,16 @@ async def delete(request: Request, instance_id: str, _payload: dict = Depends(re
     instance = await get_instance(instance_id)
     if instance is None or instance["user_id"] != request.state.user_id:
         raise HTTPException(status_code=404, detail={"error": "NOT_FOUND", "message": "Instance not found"})
+    if not is_provider_enabled(instance["provider"]):
+        raise HTTPException(status_code=400, detail={
+            "error": "PROVIDER_DISABLED",
+            "message": f"Provider {instance['provider']} is not enabled",
+        })
     provider = get_provider(instance["provider"])
-    await provider.destroy_instance(instance["provider_instance_id"])
+    try:
+        await provider.destroy_instance(instance["provider_instance_id"])
+    except Exception as e:
+        logger.warning(f"Provider destroy failed for {instance_id}: {e}", exc_info=True)
     await destroy_instance(instance_id)
     return {"status": "destroyed"}
 
@@ -145,6 +195,11 @@ async def bind_instance(request: Request, body: BindInstanceRequest, _payload: d
     offering = await get_market_offering(body.gpu_offering_id)
     if offering is None:
         raise HTTPException(status_code=404, detail={"error": "NOT_FOUND", "message": "GPU offering not found"})
+    if offering["provider"] != body.provider:
+        raise HTTPException(status_code=400, detail={
+            "error": "PROVIDER_MISMATCH",
+            "message": f"Offering provider {offering['provider']} does not match bind provider {body.provider}",
+        })
     config = {
         "template": body.template,
         "disk_gb": body.disk_gb,

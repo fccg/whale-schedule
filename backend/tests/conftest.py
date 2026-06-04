@@ -14,27 +14,30 @@ def setup_test_db_env():
     import app.config
     app.config.DATABASE_PATH = TEST_DB_PATH
     yield
-    if os.path.exists(TEST_DB_PATH):
-        os.remove(TEST_DB_PATH)
-    for suffix in ("-wal", "-shm"):
-        if os.path.exists(TEST_DB_PATH + suffix):
-            os.remove(TEST_DB_PATH + suffix)
+    try:
+        if os.path.exists(TEST_DB_PATH):
+            os.remove(TEST_DB_PATH)
+        for suffix in ("-wal", "-shm"):
+            if os.path.exists(TEST_DB_PATH + suffix):
+                os.remove(TEST_DB_PATH + suffix)
+    except PermissionError:
+        pass
 
 
 @pytest_asyncio.fixture(autouse=True)
 async def reset_db():
-    global _db
-    if _db:
-        await _db.close()
-        _db = None
+    import app.database
+    if app.database._db:
+        await app.database._db.close()
+        app.database._db = None
     if os.path.exists(TEST_DB_PATH):
         os.remove(TEST_DB_PATH)
     from app.database import get_db
     db = await get_db()
     yield db
-    if _db:
-        await _db.close()
-        _db = None
+    if app.database._db:
+        await app.database._db.close()
+        app.database._db = None
 
 
 @pytest_asyncio.fixture

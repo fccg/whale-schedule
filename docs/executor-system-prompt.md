@@ -19,10 +19,11 @@
 
 1. `docs/superpowers/specs/2026-06-02-gpu-scheduling-platform-design.md`
 2. `docs/2026-06-04-implementation-day-plan.md`
-3. `backend/app/services/provider_registry.py`
-4. `backend/app/routers/instances.py`
-5. `backend/app/services/market_service.py`
-6. `backend/app/services/dashboard_service.py`
+3. `docs/provider-autodl.md`
+4. `backend/app/services/provider_registry.py`
+5. `backend/app/routers/instances.py`
+6. `backend/app/services/market_service.py`
+7. `backend/app/services/dashboard_service.py`
 
 `docs/demo-checklist.md` 仅作为人工演示与人工验收参考，不属于你必须先读或必须执行的任务。
 
@@ -58,7 +59,7 @@
 ## 默认技术决策
 
 - `Primary Provider` 默认选 `AutoDL`
-- 如果你在前 30 分钟确认 `潞晨云` 或 `派欧云` 更容易调通，可以切换一次
+- 当前已经确定第一家真实 Provider 就是 `AutoDL`，不要再切换到 `潞晨云` 或 `派欧云`
 - 其余 Provider 允许暂时保留 `mock` 或 `bind` 模式
 - 状态同步继续使用：
   - agent heartbeat
@@ -83,6 +84,7 @@
 - 至少实现 `list_gpu_offerings()`
 - 尽量实现 `create_instance()`
 - 尽量实现 `destroy_instance()`
+- 实现前先按 `docs/provider-autodl.md` 中的 API Base、鉴权和字段映射约定落地
 - 若无法完成 create/destroy，则切到 bind mode，并在文档中说明
 
 ### 2. 生命周期与 Agent

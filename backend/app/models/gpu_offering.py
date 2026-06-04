@@ -1,4 +1,26 @@
+import json
 from app.database import get_db
+
+
+async def upsert_gpu_offerings(offerings: list[dict]):
+    """Insert or replace GPU offerings from provider data."""
+    db = await get_db()
+    for o in offerings:
+        metadata_json = json.dumps(o.get("metadata", {}))
+        await db.execute(
+            """INSERT OR REPLACE INTO gpu_offerings
+               (id, provider, gpu_family, gpu_model, vram_gb, cpu_cores, memory_gb,
+                disk_gb, price_per_hour, currency, region, available, metadata_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                o["id"], o["provider"], o["gpu_family"], o["gpu_model"],
+                o["vram_gb"], o["cpu_cores"], o["memory_gb"], o["disk_gb"],
+                o.get("price_per_hour", 0), o.get("currency", "CNY"),
+                o.get("region", ""), 1 if o.get("available", True) else 0,
+                metadata_json,
+            ),
+        )
+    await db.commit()
 
 
 async def get_gpu_offerings(

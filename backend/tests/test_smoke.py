@@ -10,7 +10,7 @@ async def test_smoke_full_lifecycle(auth_client, raw_client):
     assert resp.status_code == 200
     gpus = resp.json()["gpus"]
     assert len(gpus) >= 1
-    gpu_id = gpus[0]["id"]
+    gpu_id = "mock-a100-1"
 
     resp = await auth_client.post("/api/instances/estimate", json={"gpu_offering_id": gpu_id, "duration_h": 1})
     assert resp.status_code == 200

@@ -1,8 +1,11 @@
 import json
-from datetime import datetime, timedelta
+import logging
+from datetime import datetime, timedelta, timezone
 from app.database import get_db
 from app.models.gpu_offering import get_gpu_offering
 from app.models.metric import get_latest_metrics, get_metrics_history
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_gpus(latest_metric: dict | None) -> list[dict]:
@@ -22,93 +25,95 @@ def _build_runtime(instance: dict, latest_metric: dict | None, offering: dict | 
     if not gpus and offering:
         gpus = [{
             "index": 0,
-            "utilization": 89 if instance["status"] == "ready" else 42,
-            "vram_percent": 93 if instance["status"] == "ready" else 38,
-            "vram_used_gb": round(offering["vram_gb"] * 0.93, 1) if instance["status"] == "ready" else round(offering["vram_gb"] * 0.38, 1),
-            "vram_total_gb": offering["vram_gb"],
-            "temp_c": 61.0,
-            "power_w": 244.0,
+            "utilization": None,
+            "vram_percent": None,
+            "vram_used_gb": None,
+            "vram_total_gb": offering.get("vram_gb", 0),
+            "temp_c": None,
+            "power_w": None,
         }]
+
+    created_at = instance.get("created_at")
+    uptime_seconds = 0
+    if created_at:
+        try:
+            created_str = created_at.replace("Z", "+00:00")
+            created_dt = datetime.fromisoformat(created_str)
+            if created_dt.tzinfo is None:
+                from datetime import timezone as tz
+                created_dt = created_dt.replace(tzinfo=tz.utc)
+            now = datetime.now(timezone.utc)
+            uptime_seconds = max(0, int((now - created_dt).total_seconds()))
+        except Exception:
+            uptime_seconds = 0
+
     return {
-        "uptime_seconds": 4020 if instance["status"] == "ready" else 780,
-        "process_count": 345 if instance["status"] == "ready" else 84,
-        "disk_used_gb": latest_metric.get("disk_used_gb") if latest_metric else 25.0,
-        "disk_total_gb": latest_metric.get("disk_total_gb") if latest_metric else (offering["disk_gb"] if offering else 200.0),
+        "uptime_seconds": int(uptime_seconds),
+        "process_count": None,
+        "disk_used_gb": latest_metric.get("disk_used_gb") if latest_metric else None,
+        "disk_total_gb": latest_metric.get("disk_total_gb") if latest_metric else (offering.get("disk_gb") if offering else None),
         "volume_used_gb": None,
         "volume_total_gb": None,
-        "driver_version": "565.57.01",
-        "cuda_version": "12.7",
-        "pstate": "P0" if instance["status"] == "ready" else "P2",
+        "driver_version": None,
+        "cuda_version": None,
+        "pstate": None,
         "gpus": gpus,
     }
+
+
+def _build_connect(instance: dict) -> dict:
+    return {
+        "jupyter_url": instance.get("jupyter_url") or _mock_jupyter(instance),
+        "ssh_host": instance.get("ssh_host") or _mock_ssh_host(instance),
+        "ssh_port": instance.get("ssh_port") or 40275,
+        "docker_image": "nvidia/pytorch:26.03-py3",
+        "image_runtype": "jupyter_direct ssh",
+        "env": {"JUPYTER_DIR": "/workspace"},
+        "command_preview": "echo starting up",
+    }
+
+
+def _mock_jupyter(instance: dict) -> str | None:
+    short_id = instance.get("id", "unknown")[:8]
+    return f"https://mock-{short_id}.gpu-schedule.local/lab"
+
+
+def _mock_ssh_host(instance: dict) -> str | None:
+    short_id = instance.get("id", "unknown")[:8]
+    return f"mock-{short_id}.gpu-schedule.local"
 
 
 def _mock_latest_metric(instance: dict, offering: dict | None) -> dict:
     vram_total = offering["vram_gb"] if offering else 48.0
     gpus = [{
         "index": 0,
-        "utilization": 89 if instance["status"] == "ready" else 52,
-        "vram_percent": 93 if instance["status"] == "ready" else 44,
-        "vram_used_gb": round(vram_total * 0.93, 1) if instance["status"] == "ready" else round(vram_total * 0.44, 1),
+        "utilization": None,
+        "vram_percent": None,
+        "vram_used_gb": None,
         "vram_total_gb": vram_total,
-        "temp_c": 61.0,
-        "power_w": 244.0,
+        "temp_c": None,
+        "power_w": None,
     }]
     return {
         "id": 0,
         "instance_id": instance["id"],
-        "timestamp": datetime.utcnow().isoformat(),
-        "cpu_percent": 100 if instance["status"] == "ready" else 48,
-        "memory_percent": 16 if instance["status"] == "ready" else 28,
-        "memory_used_gb": 7.8,
-        "memory_total_gb": 46.6,
-        "gpu_util_percent": gpus[0]["utilization"],
-        "gpu_vram_percent": gpus[0]["vram_percent"],
-        "disk_used_gb": 25.0,
-        "disk_total_gb": 200.0,
-        "net_up_mbps": 125.3,
-        "net_down_mbps": 450.1,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "cpu_percent": None,
+        "memory_percent": None,
+        "memory_used_gb": None,
+        "memory_total_gb": None,
+        "gpu_util_percent": None,
+        "gpu_vram_percent": None,
+        "disk_used_gb": None,
+        "disk_total_gb": None,
+        "net_up_mbps": None,
+        "net_down_mbps": None,
         "gpu_json": json.dumps(gpus),
     }
 
 
 def _mock_history(instance: dict) -> list[dict]:
-    base = datetime.utcnow()
-    cpu_values = [12, 18, 24, 35, 48, 56, 72, 86, 100]
-    gpu_values = [8, 16, 24, 32, 44, 57, 70, 82, 89]
-    mem_values = [8, 9, 10, 12, 13, 14, 15, 16, 16]
-    history = []
-    for index, cpu in enumerate(cpu_values):
-        history.append({
-            "id": index + 1,
-            "instance_id": instance["id"],
-            "timestamp": (base - timedelta(minutes=(len(cpu_values) - index) * 3)).isoformat(),
-            "cpu_percent": cpu,
-            "memory_percent": mem_values[index],
-            "memory_used_gb": 7.8,
-            "memory_total_gb": 46.6,
-            "gpu_util_percent": gpu_values[index],
-            "gpu_vram_percent": min(96, gpu_values[index] + 8),
-            "disk_used_gb": 25.0,
-            "disk_total_gb": 200.0,
-            "net_up_mbps": 125.3,
-            "net_down_mbps": 450.1,
-            "gpu_json": None,
-        })
-    return history
-
-
-def _build_connect(instance: dict) -> dict:
-    short_id = instance["id"][:8]
-    return {
-        "jupyter_url": f"https://mock-{short_id}.gpu-schedule.local/lab",
-        "ssh_host": f"mock-{short_id}.gpu-schedule.local",
-        "ssh_port": 40275,
-        "docker_image": "pytorch/pytorch",
-        "image_runtype": "jupyter_direct ssh",
-        "env": {"JUPYTER_DIR": "/workspace"},
-        "command_preview": "echo starting up",
-    }
+    return []
 
 
 async def _get_connectivity_summary(instance_id: str) -> list[dict]:
@@ -137,13 +142,16 @@ async def _get_tests_summary(instance_id: str) -> list[dict]:
 
 
 async def build_instance_dashboard(instance: dict) -> dict:
-    offering = await get_gpu_offering(instance["gpu_offering_id"]) if instance.get("gpu_offering_id") else None
+    offering = await get_gpu_offering(instance.get("gpu_offering_id")) if instance.get("gpu_offering_id") else None
     latest_metric = await get_latest_metrics(instance["id"])
     history = await get_metrics_history(instance["id"])
-    if latest_metric is None:
+
+    has_real_data = latest_metric is not None
+    if not has_real_data:
         latest_metric = _mock_latest_metric(instance, offering)
     if not history:
         history = _mock_history(instance)
+
     runtime = _build_runtime(instance, latest_metric, offering)
 
     return {

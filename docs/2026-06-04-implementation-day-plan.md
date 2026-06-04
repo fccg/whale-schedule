@@ -96,7 +96,7 @@
 ### 3.3 默认技术决策
 
 - `Primary Provider` 默认选 `AutoDL`
-- 如果另一个模型在前 30 分钟确认 `潞晨云` 或 `派欧云` API 更容易接入，可切换，但只能切换 1 次
+- 当前已明确决定：第一家真实 Provider 固定为 `AutoDL`，明天不再切换到 `潞晨云` 或 `派欧云`
 - 其余 Provider 明天统一保留 `mock` 或 `bind 纳管` 兜底
 - 状态同步继续使用：
   - agent heartbeat
@@ -130,6 +130,7 @@
 
 1. 阅读并确认：
    - `docs/superpowers/specs/2026-06-02-gpu-scheduling-platform-design.md`
+   - `docs/provider-autodl.md`
    - `backend/app/providers/base.py`
    - `backend/app/services/provider_registry.py`
    - `backend/app/routers/gpus.py`
@@ -145,6 +146,8 @@
 
 - 一个明确结论：
   - “明天使用 AutoDL 作为唯一真实调度 Provider”
+- 一份项目内 AutoDL 对接说明：
+  - `docs/provider-autodl.md`
 - 一份真实 Provider 所需环境变量清单
 
 ### 验收标准
@@ -710,6 +713,7 @@
 
 - `README.md`
 - `docs/demo-checklist.md`
+- `docs/provider-autodl.md`
 
 ## 15. 给执行模型的明确实施顺序
 
@@ -766,10 +770,11 @@
 
 1. `docs/superpowers/specs/2026-06-02-gpu-scheduling-platform-design.md`
 2. `docs/2026-06-04-implementation-day-plan.md`
-3. `backend/app/services/provider_registry.py`
-4. `backend/app/routers/instances.py`
-5. `backend/app/services/market_service.py`
-6. `backend/app/services/dashboard_service.py`
+3. `docs/provider-autodl.md`
+4. `backend/app/services/provider_registry.py`
+5. `backend/app/routers/instances.py`
+6. `backend/app/services/market_service.py`
+7. `backend/app/services/dashboard_service.py`
 
 执行模型完成后，应该至少新增一个总结文档：
 

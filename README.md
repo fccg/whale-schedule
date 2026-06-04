@@ -35,6 +35,28 @@
 - 实例 bootstrap 流程
 - Telemetry 与测试链路
 
+最近更新 (2026-06-04)：
+
+- AutoDL 真实 Provider 已接入（支持 list / create / destroy）
+- 无 API Key 时自动降级为 bind mode
+- 实例生命周期已改为事件驱动（heartbeat 驱动状态流转）
+- 性能测试与连通性测试已分离为独立逻辑
+- 支持 JSON / CSV 测试结果导出
+- Dashboard 优先使用真实 metrics / connect 数据
+- 新增 bootstrap.sh / health_check.sh / gpu-metrics.sh 脚本
+- destroy 链路已真实验证：power_off → 轮询 shutdown → release 可用
+
+## AutoDL Provider 模式
+
+- 配置 `AUTODL_API_KEY` → 真实 API 调度模式：
+  - `list`：从 AutoDL 拉取实例列表并映射为 GPU offerings（无实例时 fallback 到静态规格）
+  - `create`：调用真实 AutoDL create API，返回 `pro-` 开头的真实实例 ID
+  - `destroy`：已真实验证 `power_off` → 轮询 `shutdown` → `release` 链路可用。正常路径为全自动两步销毁。异常场景（power_off 失败、release 失败、轮询超时）会记录 warning 并清理本地状态，需人工复核 AutoDL 远端是否已释放
+  - `get_instance`：通过 list API 搜索实例 UUID 获取当前状态
+- 未配置 `AUTODL_API_KEY` → bind mode（list 返回静态规格，create 返回 bind-ID，destroy 静默释放）
+- Provider 已在 `provider_registry` 中自动注册，无需手动配置
+- **已知限制**：destroy 在 power_off 或 release 失败/超时时不会自动重试，仅清理本地。极端场景建议登录 AutoDL 控制台确认实例是否已释放
+
 ## 核心能力
 
 ### 1. GPU 市场页
@@ -205,14 +227,13 @@ schedule/
 
 ## 运行方式
 
-当前 README 为开发前初稿，以下命令将在功能落地后补充：
+当前仓库已经具备基础的 Docker Compose 部署方式，真实 Provider 的首选接入方案已固定为 `AutoDL`。
 
-- 本地开发启动命令
-- Docker Compose 启动方式
-- 环境变量说明
-- 初始化数据库方式
-- Mock 模式运行方式
-- 真实 Provider 接入说明
+相关文档：
+
+- `docs/provider-autodl.md`
+- `docs/2026-06-04-implementation-day-plan.md`
+- `docs/executor-system-prompt.md`
 
 ### 当前云端部署方式
 
@@ -237,6 +258,11 @@ docker compose up -d --build
 - 当前配置不依赖开放 `22` 端口给公网访问
 - 浏览器端 API 地址已固定为公网地址 `115.191.43.252:18760`
 - 后端 CORS 已允许 `http://115.191.43.252:18761`
+
+如果使用根目录下的 `.env.example` 生成 `.env`，可再结合实际公网 IP 修改：
+
+- `CORS_ORIGIN`
+- `NEXT_PUBLIC_API_URL`
 
 ### 云端更新脚本
 
@@ -268,24 +294,103 @@ chmod +x scripts/appctl.sh
 
 建议你在云端实例的项目目录中始终通过这个脚本管理服务，避免手动拼接 `docker compose` 命令。
 
+### 本地开发最小启动说明
+
+1. 复制环境变量模板：
+
+```bash
+cp .env.example .env
+```
+
+2. 按实际情况修改 `.env` 中的关键字段：
+
+- `JWT_SECRET`
+- `CORS_ORIGIN`
+- `NEXT_PUBLIC_API_URL`
+- `AUTODL_API_KEY`（需要接入真实 Provider 时）
+
+3. 使用 Docker Compose 启动：
+
+```bash
+docker compose up -d --build
+```
+
+4. 验证服务：
+
+- 前端：`http://localhost:18761` 或你的公网地址
+- 后端：`http://localhost:18760` 或你的公网地址
+
+如果只是跑当前后端测试，重点环境变量是：
+
+- `DATABASE_PATH`
+- `JWT_SECRET`
+
 ## 环境变量
 
-后续预计需要以下环境变量：
+根目录提供了 `.env.example` 作为模板。
+
+当前仓库中已经实际使用的环境变量如下：
 
 ```env
 JWT_SECRET=
-DATABASE_URL=
-AUTO_DL_API_KEY=
-LUCHEN_API_KEY=
-PAIO_API_KEY=
-S3_ENDPOINT=
-S3_ACCESS_KEY=
-S3_SECRET_KEY=
-S3_BUCKET=
-EXCHANGE_RATE_API=
+DATABASE_PATH=
+DEFAULT_BUDGET=
+EXCHANGE_RATE_USD_TO_CNY=
+CORS_ORIGIN=
+NEXT_PUBLIC_API_URL=
 ```
 
-实际字段以后端实现为准。
+说明：
+
+- `JWT_SECRET`：后端登录态签名密钥
+- `DATABASE_PATH`：SQLite 文件路径，默认值为 `data/schedule.db`
+- `DEFAULT_BUDGET`：预算默认值
+- `EXCHANGE_RATE_USD_TO_CNY`：汇率换算默认值
+- `CORS_ORIGIN`：后端允许的前端来源，多个值可用逗号分隔
+- `NEXT_PUBLIC_API_URL`：前端请求后端 API 的地址
+
+为接入首个真实 Provider `AutoDL`，项目内已经约定以下环境变量，应由执行模型在实现时接入 `backend/app/config.py`：
+
+```env
+PRIMARY_PROVIDER=autodl
+AUTODL_API_BASE=https://api.autodl.com
+AUTODL_API_KEY=
+AUTODL_DEFAULT_IMAGE_UUID=
+AUTODL_DEFAULT_CUDA_V_FROM=113
+AUTODL_DEFAULT_GPU_AMOUNT=1
+AUTODL_DEFAULT_SYSTEM_DISK_GB=0
+AUTODL_DATA_CENTER_LIST=
+```
+
+说明：
+
+- `PRIMARY_PROVIDER`：首选真实 Provider，当前固定为 `autodl`
+- `AUTODL_API_BASE`：AutoDL API Host
+- `AUTODL_API_KEY`：AutoDL 开发者 Token
+- `AUTODL_DEFAULT_IMAGE_UUID`：创建实例时默认镜像
+- `AUTODL_DEFAULT_CUDA_V_FROM`：最低 CUDA 驱动要求，例如 `113` 代表 `>= 11.3`
+- `AUTODL_DEFAULT_GPU_AMOUNT`：默认 GPU 数量
+- `AUTODL_DEFAULT_SYSTEM_DISK_GB`：系统盘扩容大小
+- `AUTODL_DATA_CENTER_LIST`：可选地区列表，多个值建议用逗号分隔
+
+如需具体接口映射和字段回填口径，请直接查看：
+
+- `docs/provider-autodl.md`
+
+## 常见问题
+
+- `provider 未启用`
+  - 通常是 `AUTODL_API_KEY` 未配置，或执行模型尚未把 AutoDL 配置接入 `backend/app/config.py` 与 `provider_registry.py`
+- `CORS 报错`
+  - 检查 `CORS_ORIGIN` 是否包含当前前端地址，例如 `http://localhost:18761` 或公网地址
+- `前端 API 地址错误`
+  - 检查 `NEXT_PUBLIC_API_URL` 是否指向正确的后端地址和端口
+- `数据库初始化异常`
+  - 检查 `DATABASE_PATH` 所在目录是否可写
+- `真实 Provider 接口调用失败`
+  - 优先检查 `AUTODL_API_BASE`、`AUTODL_API_KEY` 和镜像/规格配置；实现细节以 `docs/provider-autodl.md` 为准
+- `destroy 返回成功但 AutoDL 侧未释放`
+  - destroy 链路已真实验证（power_off → 轮询 shutdown → release）。正常路径远程释放成功，本地状态同步清理。如遇网络中断、API 超时或 release 被拒，代码记录 warning 后仍清理本地状态——此时需登录 AutoDL 控制台确认远端实例是否已释放。
 
 ## 风险与取舍
 

@@ -1,3 +1,4 @@
+import json
 import uuid
 from app.database import get_db
 
@@ -9,15 +10,25 @@ async def create_instance(
     config_json: str,
     agent_token: str,
     provider_instance_id: str | None = None,
+    display_name: str | None = None,
+    hourly_price: float | None = None,
+    region: str | None = None,
+    ssh_host: str | None = None,
+    ssh_port: int | None = None,
+    connect_url: str | None = None,
+    jupyter_url: str | None = None,
+    metadata_json: str | None = None,
 ) -> dict:
     db = await get_db()
     instance_id = str(uuid.uuid4())
     await db.execute(
         """INSERT INTO instances (id, user_id, provider, provider_instance_id,
-           gpu_offering_id, config_json, agent_token)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+           gpu_offering_id, config_json, agent_token, display_name, hourly_price,
+           region, ssh_host, ssh_port, connect_url, jupyter_url, metadata_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (instance_id, user_id, provider, provider_instance_id,
-         gpu_offering_id, config_json, agent_token),
+         gpu_offering_id, config_json, agent_token, display_name, hourly_price,
+         region, ssh_host, ssh_port, connect_url, jupyter_url, metadata_json or "{}"),
     )
     await db.commit()
     return await get_instance(instance_id)
@@ -45,6 +56,14 @@ async def update_instance_status(
     current_step: int | None = None,
     progress_percent: float | None = None,
     last_error: str | None = None,
+    clear_error: bool = False,
+    ssh_host: str | None = None,
+    ssh_port: int | None = None,
+    connect_url: str | None = None,
+    jupyter_url: str | None = None,
+    hourly_price: float | None = None,
+    region: str | None = None,
+    display_name: str | None = None,
 ):
     db = await get_db()
     parts = ["status = ?"]
@@ -55,9 +74,32 @@ async def update_instance_status(
     if progress_percent is not None:
         parts.append("progress_percent = ?")
         params.append(progress_percent)
-    if last_error is not None:
+    if clear_error:
+        parts.append("last_error = NULL")
+    elif last_error is not None:
         parts.append("last_error = ?")
         params.append(last_error)
+    if ssh_host is not None:
+        parts.append("ssh_host = ?")
+        params.append(ssh_host)
+    if ssh_port is not None:
+        parts.append("ssh_port = ?")
+        params.append(ssh_port)
+    if connect_url is not None:
+        parts.append("connect_url = ?")
+        params.append(connect_url)
+    if jupyter_url is not None:
+        parts.append("jupyter_url = ?")
+        params.append(jupyter_url)
+    if hourly_price is not None:
+        parts.append("hourly_price = ?")
+        params.append(hourly_price)
+    if region is not None:
+        parts.append("region = ?")
+        params.append(region)
+    if display_name is not None:
+        parts.append("display_name = ?")
+        params.append(display_name)
     params.append(instance_id)
     await db.execute(
         f"UPDATE instances SET {', '.join(parts)} WHERE id = ?", params

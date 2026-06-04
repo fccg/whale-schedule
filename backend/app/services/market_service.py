@@ -1,5 +1,9 @@
-from app.models.gpu_offering import get_gpu_offering, get_gpu_offerings, seed_mock_offerings
+import asyncio
+import logging
+from app.models.gpu_offering import get_gpu_offering, get_gpu_offerings, seed_mock_offerings, upsert_gpu_offerings
+from app.services.provider_registry import get_active_providers, get_active_provider_names
 
+logger = logging.getLogger(__name__)
 
 PROVIDER_META = {
     "mock": {
@@ -12,7 +16,18 @@ PROVIDER_META = {
         "secure_cloud": True,
         "max_duration_days": 7,
         "badge_tags": ["recommended", "instant"],
-    }
+    },
+    "autodl": {
+        "host_display_name": "AutoDL Cloud",
+        "verified": True,
+        "reliability_score": 95.0,
+        "network_up_mbps": 500.0,
+        "network_down_mbps": 800.0,
+        "disk_type": "NVMe SSD",
+        "secure_cloud": True,
+        "max_duration_days": 14,
+        "badge_tags": ["real", "verified"],
+    },
 }
 
 TEMPLATES = [
@@ -57,7 +72,7 @@ def _enrich_offering(row: dict) -> dict:
     return {
         **row,
         "gpu_count": 1,
-        "host_display_name": f'{meta.get("host_display_name", row["provider"].title())} {row["region"]}',
+        "host_display_name": f'{meta.get("host_display_name", row["provider"].title())} {row.get("region", "")}',
         "verified": meta.get("verified", False),
         "reliability_score": meta.get("reliability_score", 96.0),
         "network_up_mbps": meta.get("network_up_mbps", 500.0),
@@ -65,8 +80,20 @@ def _enrich_offering(row: dict) -> dict:
         "disk_type": meta.get("disk_type", "SSD"),
         "secure_cloud": meta.get("secure_cloud", False),
         "max_duration_days": meta.get("max_duration_days", 3),
-        "badge_tags": [*meta.get("badge_tags", []), *_family_badges(row["gpu_family"])],
+        "badge_tags": [*meta.get("badge_tags", []), *_family_badges(row.get("gpu_family", "general"))],
     }
+
+
+async def _sync_provider_offerings():
+    """Pull offerings from all active providers and upsert into gpu_offerings table."""
+    providers = get_active_providers()
+    for provider in providers:
+        try:
+            offerings = await provider.list_gpu_offerings()
+            if offerings:
+                await upsert_gpu_offerings(offerings)
+        except Exception:
+            logger.warning(f"Failed to sync offerings from provider", exc_info=True)
 
 
 async def list_market_offerings(
@@ -79,6 +106,11 @@ async def list_market_offerings(
     available_only: bool = True,
 ) -> dict:
     await seed_mock_offerings()
+    try:
+        await _sync_provider_offerings()
+    except Exception:
+        logger.warning("Provider sync failed, using cached offerings", exc_info=True)
+
     rows = await get_gpu_offerings(
         family=family,
         provider=provider,
@@ -88,29 +120,37 @@ async def list_market_offerings(
     )
     items = [_enrich_offering(row) for row in rows]
     if region:
-        items = [item for item in items if item["region"] == region]
+        items = [item for item in items if item.get("region") == region]
     if search:
         lowered = search.lower()
         items = [
             item for item in items
-            if lowered in item["gpu_model"].lower()
-            or lowered in item["region"].lower()
-            or lowered in item["provider"].lower()
-            or lowered in item["host_display_name"].lower()
+            if lowered in item.get("gpu_model", "").lower()
+            or lowered in item.get("region", "").lower()
+            or lowered in item.get("provider", "").lower()
+            or lowered in item.get("host_display_name", "").lower()
         ]
+
+    all_providers = get_active_provider_names()
+    all_regions = sorted({item.get("region", "") for item in items if item.get("region")})
+
     return {
         "items": items,
         "total": len(items),
         "filters": {
             "families": ["A100", "H", "6090"],
-            "providers": ["mock"],
-            "regions": sorted({item["region"] for item in items}),
+            "providers": all_providers,
+            "regions": all_regions,
         },
     }
 
 
 async def get_market_offering(offering_id: str) -> dict | None:
     await seed_mock_offerings()
+    try:
+        await _sync_provider_offerings()
+    except Exception:
+        pass
     row = await get_gpu_offering(offering_id)
     if row is None:
         return None
@@ -122,7 +162,7 @@ async def get_launch_payload(offering_id: str, remaining_budget: float) -> dict 
     if offering is None:
         return None
     default_duration_h = 6
-    default_disk_gb = max(200, int(offering["disk_gb"] / 2))
+    default_disk_gb = max(200, int(offering.get("disk_gb", 200) / 2))
     return {
         "offering": offering,
         "templates": TEMPLATES,

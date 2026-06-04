@@ -134,15 +134,23 @@ export default function InstanceDetailPage() {
               <CardContent className="space-y-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Jupyter URL</p>
-                  <p className="text-white">{connect.jupyter_url}</p>
+                  <p className="text-white">{connect.jupyter_url || "—"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">SSH</p>
-                  <p className="text-white">{connect.ssh_host}:{connect.ssh_port}</p>
+                  <p className="text-white">{connect.ssh_host || "—"}:{connect.ssh_port || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Image</p>
-                  <p className="text-white">{connect.docker_image}</p>
+                  <p className="text-muted-foreground">Provider Instance ID</p>
+                  <p className="text-white font-mono text-xs">{instance.provider_instance_id || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Region</p>
+                  <p className="text-white">{instance.region || offering?.region || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Hourly Price</p>
+                  <p className="text-white">{instance.hourly_price != null ? `¥${instance.hourly_price}/h` : offering?.price_per_hour != null ? `¥${offering.price_per_hour}/h` : "—"}</p>
                 </div>
               </CardContent>
             </Card>
@@ -150,6 +158,10 @@ export default function InstanceDetailPage() {
             <Card className="border-white/8 bg-[#141414]">
               <CardHeader><CardTitle>Runtime Meta</CardTitle></CardHeader>
               <CardContent className="space-y-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Docker Image</p>
+                  <p className="text-white">{connect.docker_image}</p>
+                </div>
                 <div>
                   <p className="text-muted-foreground">Image Runtype</p>
                   <p className="text-white">{connect.image_runtype}</p>
@@ -172,6 +184,7 @@ export default function InstanceDetailPage() {
         {tab === "Tests" && (
           <div className="mt-6 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
             <TestReportPanel
+              instanceId={instanceId}
               testRuns={tests_summary}
               onTriggerTest={handleRunPerfTest}
               loading={testLoading}

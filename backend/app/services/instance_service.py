@@ -1,30 +1,36 @@
 import asyncio
-import random
+import logging
 from app.models.instance import update_instance_status, get_instance
+
+logger = logging.getLogger(__name__)
 
 
 async def advance_instance_lifecycle(instance_id: str):
-    """Mock lifecycle: provisioning(5s) -> bootstrapping(5s) -> testing(5s) -> ready
-    With 10% random failure at bootstrapping steps 3-4 for error-path demo."""
+    """Event-driven lifecycle bootstrap simulation.
+
+    When a real agent is not yet connected, this simulates the bootstrap→testing→ready
+    progression with modest delays. Each state transition is recorded so that when a
+    real agent heartbeat arrives, it takes over.
+    """
     steps = [
-        ("provisioning", 1, 10, None),
-        ("bootstrapping", 2, 40, None),
-        ("bootstrapping", 3, 60, None),
-        ("bootstrapping", 4, 80, None),
-        ("testing", 5, 90, None),
-        ("ready", 6, 100, None),
+        ("provisioning", 1, 10),
+        ("bootstrapping", 2, 40),
+        ("bootstrapping", 3, 60),
+        ("bootstrapping", 4, 80),
+        ("testing", 5, 90),
+        ("ready", 6, 100),
     ]
-    for status, step, progress, _ in steps:
-        await asyncio.sleep(3)
-        if status == "bootstrapping" and step in (3, 4) and random.random() < 0.10:
-            await update_instance_status(
-                instance_id,
-                status="failed",
-                current_step=step,
-                progress_percent=float(progress),
-                last_error=f"Environment setup failed at step {step}: simulated error",
-            )
-            return
+    for status, step, progress in steps:
+        inst = await get_instance(instance_id)
+        if inst is None:
+            break
+        # Don't override if a real agent has already advanced the state
+        current_status = inst.get("status", "provisioning")
+        if current_status in ("ready", "degraded", "failed", "destroyed"):
+            break
+        if current_status == "testing" and status in ("provisioning", "bootstrapping"):
+            continue
+        await asyncio.sleep(2)
         await update_instance_status(
             instance_id,
             status=status,

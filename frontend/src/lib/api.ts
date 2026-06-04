@@ -112,6 +112,23 @@ export const api = {
 
   getConnectivity: (instanceId: string) =>
     request<{ connectivity_tests: ConnectivityTest[] }>(`/api/instances/${instanceId}/connectivity`),
+
+  exportTests: (instanceId: string, format: "json" | "csv" = "json") => {
+    const t = getToken();
+    const headers: Record<string, string> = {};
+    if (t) headers["Authorization"] = `Bearer ${t}`;
+    return fetch(`${API_BASE}/api/instances/${instanceId}/tests/export?format=${format}`, { headers })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Export failed");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `test_results_${instanceId.slice(0, 8)}.${format}`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+  },
 };
 
 export interface GPUOffering {
@@ -150,6 +167,13 @@ export interface Instance {
   progress_percent: number;
   last_error: string | null;
   last_heartbeat_at: string | null;
+  display_name: string | null;
+  hourly_price: number | null;
+  region: string | null;
+  ssh_host: string | null;
+  ssh_port: number | null;
+  connect_url: string | null;
+  jupyter_url: string | null;
   config_json: string;
   created_at: string;
   destroyed_at: string | null;
