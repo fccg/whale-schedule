@@ -1,19 +1,51 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { api, getToken } from "@/lib/api";
 import type { InstanceDashboard } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import InstanceHeroBar from "@/components/instance/InstanceHeroBar";
-import TelemetryGauge from "@/components/instance/TelemetryGauge";
 import TelemetryStatTile from "@/components/instance/TelemetryStatTile";
 import GpuTelemetryPanel from "@/components/instance/GpuTelemetryPanel";
-import TelemetryChart from "@/components/TelemetryChart";
 import TestReportPanel from "@/components/TestReportPanel";
 import ConnectivityChecklist from "@/components/ConnectivityChecklist";
 
 const TABS = ["Telemetry", "Connect", "Tests", "Logs"] as const;
+
+const TelemetryGauge = dynamic(() => import("@/components/instance/TelemetryGauge"), {
+  ssr: false,
+  loading: () => <div className="min-h-[260px] rounded-2xl border border-white/8 bg-[#141414] p-5" />,
+});
+
+const TelemetryChart = dynamic(() => import("@/components/TelemetryChart"), {
+  ssr: false,
+  loading: () => <div className="w-full rounded-xl bg-black/10" style={{ height: 320 }} />,
+});
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "—";
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("zh-CN", { hour12: false });
+}
+
+function formatTime(value: string | null | undefined) {
+  if (!value) return "无";
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleTimeString("zh-CN", { hour12: false });
+}
+
+function cleanText(value: string | null | undefined, fallback = "—") {
+  if (!value) return fallback;
+  const trimmed = value.trim();
+  const unwrapped = trimmed.replace(/^`+|`+$/g, "");
+  return unwrapped || fallback;
+}
 
 export default function InstanceDetailPage() {
   const params = useParams();
@@ -68,7 +100,9 @@ export default function InstanceDetailPage() {
   const diskUsed = runtime?.disk_used_gb ?? 0;
   const diskTotal = runtime?.disk_total_gb ?? 0;
   const diskText = `${diskUsed.toFixed(0)} GB / ${diskTotal.toFixed(0)} GB`;
-  const volumeText = runtime?.volume_total_gb ? `${runtime.volume_used_gb} / ${runtime.volume_total_gb} GB` : "No Volume";
+  const volumeText = runtime?.volume_total_gb != null
+    ? `${runtime.volume_used_gb ?? 0} / ${runtime.volume_total_gb} GB`
+    : "No Volume";
 
   return (
     <div className="min-h-screen bg-[#0b0b0d]">
@@ -136,11 +170,11 @@ export default function InstanceDetailPage() {
               <CardContent className="space-y-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Jupyter URL</p>
-                  <p className="text-white">{connect.jupyter_url || "—"}</p>
+                  <p className="break-all text-white">{cleanText(connect.jupyter_url)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">SSH</p>
-                  <p className="text-white">{connect.ssh_host || "—"}:{connect.ssh_port || "—"}</p>
+                  <p className="text-white">{cleanText(connect.ssh_host)}:{connect.ssh_port ?? "—"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Provider Instance ID</p>
@@ -209,9 +243,9 @@ export default function InstanceDetailPage() {
                 <p className="mt-2">最后错误: {instance.last_error || "无"}</p>
               </div>
               <div className="rounded-2xl border border-white/6 bg-black/20 p-4">
-                <p>Agent heartbeat: {instance.last_heartbeat_at || "未收到"}</p>
+                <p>Agent heartbeat: {formatTime(instance.last_heartbeat_at)}</p>
                 <p className="mt-2">Provider instance id: {instance.provider_instance_id}</p>
-                <p className="mt-2">创建时间: {new Date(instance.created_at).toLocaleString("zh-CN")}</p>
+                <p className="mt-2">创建时间: {formatDateTime(instance.created_at)}</p>
               </div>
             </CardContent>
           </Card>

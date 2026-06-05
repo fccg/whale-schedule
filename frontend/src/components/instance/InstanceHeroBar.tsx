@@ -17,6 +17,14 @@ function formatUptime(seconds: number) {
   return `${hours}h ${minutes}m`;
 }
 
+function formatHeartbeat(value: string | null | undefined) {
+  if (!value) return "无";
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleTimeString("zh-CN", { hour12: false });
+}
+
 export default function InstanceHeroBar({ instance, offering, runtime, onDestroy }: InstanceHeroBarProps) {
   return (
     <div className="rounded-2xl border border-white/8 bg-[#141414] p-5">
@@ -35,7 +43,7 @@ export default function InstanceHeroBar({ instance, offering, runtime, onDestroy
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {offering?.region ?? "Unknown region"} · Instance {instance.id.slice(0, 12)} · 最近心跳{" "}
-              {instance.last_heartbeat_at ? new Date(instance.last_heartbeat_at).toLocaleTimeString("zh-CN") : "无"}
+              {formatHeartbeat(instance.last_heartbeat_at)}
             </p>
           </div>
         </div>
@@ -47,7 +55,9 @@ export default function InstanceHeroBar({ instance, offering, runtime, onDestroy
           </div>
           <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Price</p>
-            <p className="text-xl font-semibold text-white">¥{offering?.price_per_hour?.toFixed(2) ?? "--"}/h</p>
+            <p className="text-xl font-semibold text-white">
+              {offering?.price_per_hour != null ? `¥${offering.price_per_hour.toFixed(2)}/h` : "--"}
+            </p>
           </div>
           <Button variant="outline" className="border-white/12 bg-black/20 text-white hover:bg-white/10">
             OPEN

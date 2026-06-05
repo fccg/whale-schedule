@@ -22,7 +22,7 @@ export default function TelemetryGauge({
   ];
 
   return (
-    <div className="rounded-2xl border border-white/8 bg-[#141414] p-5">
+    <div className="min-w-0 rounded-2xl border border-white/8 bg-[#141414] p-5">
       <p className="mb-4 text-sm text-muted-foreground">{label}</p>
       <div className="h-48">
         <ResponsiveContainer width="100%" height="100%">

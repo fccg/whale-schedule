@@ -184,16 +184,16 @@ export interface Metric {
   id: number;
   instance_id: string;
   timestamp: string;
-  cpu_percent: number;
-  memory_percent: number;
-  memory_used_gb: number;
-  memory_total_gb: number;
-  gpu_util_percent: number;
-  gpu_vram_percent: number;
-  disk_used_gb: number;
-  disk_total_gb: number;
-  net_up_mbps: number;
-  net_down_mbps: number;
+  cpu_percent: number | null;
+  memory_percent: number | null;
+  memory_used_gb: number | null;
+  memory_total_gb: number | null;
+  gpu_util_percent: number | null;
+  gpu_vram_percent: number | null;
+  disk_used_gb: number | null;
+  disk_total_gb: number | null;
+  net_up_mbps: number | null;
+  net_down_mbps: number | null;
   gpu_json: string | null;
 }
 
@@ -221,8 +221,8 @@ export interface ConnectivityTest {
   id: number;
   instance_id: string;
   target: string;
-  status_code: number;
-  latency_ms: number;
+  status_code: number | null;
+  latency_ms: number | null;
   is_direct: number;
   error_message: string | null;
   timestamp: string;
@@ -271,31 +271,31 @@ export interface LaunchPayload {
 
 export interface GpuRuntimeDetail {
   index: number;
-  utilization: number;
-  vram_percent: number;
-  vram_used_gb: number;
-  vram_total_gb: number;
-  temp_c: number;
-  power_w: number;
+  utilization: number | null;
+  vram_percent: number | null;
+  vram_used_gb: number | null;
+  vram_total_gb: number | null;
+  temp_c: number | null;
+  power_w: number | null;
 }
 
 export interface RuntimeInfo {
   uptime_seconds: number;
-  process_count: number;
-  disk_used_gb: number;
-  disk_total_gb: number;
+  process_count: number | null;
+  disk_used_gb: number | null;
+  disk_total_gb: number | null;
   volume_used_gb: number | null;
   volume_total_gb: number | null;
-  driver_version: string;
-  cuda_version: string;
-  pstate: string;
+  driver_version: string | null;
+  cuda_version: string | null;
+  pstate: string | null;
   gpus: GpuRuntimeDetail[];
 }
 
 export interface ConnectInfo {
-  jupyter_url: string;
-  ssh_host: string;
-  ssh_port: number;
+  jupyter_url: string | null;
+  ssh_host: string | null;
+  ssh_port: number | null;
   docker_image: string;
   image_runtype: string;
   env: Record<string, string>;
