@@ -44,6 +44,11 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
         })
 
     metadata = offering.get("metadata", {})
+    if not metadata and offering.get("metadata_json"):
+        try:
+            metadata = json.loads(offering["metadata_json"])
+        except (json.JSONDecodeError, TypeError):
+            metadata = {}
     config = {
         "template": body.template,
         "disk_gb": body.disk_gb,
@@ -57,6 +62,8 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
     }
     agent_token = secrets.token_hex(16)
     provider = get_provider(provider_name)
+    logger.info("Autodl create config: gpu_spec_uuid=%s, image_uuid=%s, cuda_v_from=%s, gpu_amount=%s",
+                config["gpu_spec_uuid"], config["image_uuid"], config["cuda_v_from"], config["gpu_amount"])
 
     try:
         provider_result = await provider.create_instance(body.gpu_offering_id, config)

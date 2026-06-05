@@ -158,6 +158,10 @@ class AutoDLProvider(BaseProvider):
         image_uuid = config.get("image_uuid", AUTODL_DEFAULT_IMAGE_UUID)
         if not image_uuid:
             image_uuid = AUTODL_DEFAULT_IMAGE_UUID
+        if not gpu_spec_uuid:
+            raise ProviderError("autodl", "Missing gpu_spec_uuid for create_instance")
+        if not image_uuid:
+            raise ProviderError("autodl", "Missing image_uuid for create_instance")
         body = {
             "req_gpu_amount": config.get("gpu_amount", AUTODL_DEFAULT_GPU_AMOUNT),
             "expand_system_disk_by_gb": config.get("expand_system_disk_by_gb", AUTODL_DEFAULT_SYSTEM_DISK_GB),
@@ -169,6 +173,9 @@ class AutoDLProvider(BaseProvider):
         }
         if AUTODL_DATA_CENTER_LIST:
             body["data_center_list"] = [d.strip() for d in AUTODL_DATA_CENTER_LIST.split(",") if d.strip()]
+
+        logger.info("Autodl create_instance request: gpu_spec_uuid=%s, image_uuid=%s, cuda_v_from=%s, req_gpu_amount=%s, instance_name=%s",
+                    gpu_spec_uuid, image_uuid, body.get("cuda_v_from"), body.get("req_gpu_amount"), body.get("instance_name"))
 
         if not self._enabled:
             import uuid

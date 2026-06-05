@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from app.models.gpu_offering import get_gpu_offering, get_gpu_offerings, seed_mock_offerings, upsert_gpu_offerings
 from app.services.provider_registry import get_active_providers, get_active_provider_names
@@ -69,8 +70,16 @@ def _family_badges(family: str) -> list[str]:
 
 def _enrich_offering(row: dict) -> dict:
     meta = PROVIDER_META.get(row["provider"], {})
+    metadata = {}
+    metadata_json = row.get("metadata_json")
+    if metadata_json and isinstance(metadata_json, str):
+        try:
+            metadata = json.loads(metadata_json)
+        except (json.JSONDecodeError, TypeError):
+            metadata = {}
     return {
         **row,
+        "metadata": metadata,
         "gpu_count": 1,
         "host_display_name": f'{meta.get("host_display_name", row["provider"].title())} {row.get("region", "")}',
         "verified": meta.get("verified", False),
