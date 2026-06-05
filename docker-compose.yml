@@ -7,8 +7,18 @@ services:
       - "18760:8000"
     environment:
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
-      - DATABASE_PATH=data/schedule.db
-      - CORS_ORIGIN=http://115.191.43.252:18761
+      - DATABASE_PATH=${DATABASE_PATH:-data/schedule.db}
+      - DEFAULT_BUDGET=${DEFAULT_BUDGET:-100.0}
+      - EXCHANGE_RATE_USD_TO_CNY=${EXCHANGE_RATE_USD_TO_CNY:-7.25}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://115.191.43.252:18761}
+      - PRIMARY_PROVIDER=${PRIMARY_PROVIDER:-autodl}
+      - AUTODL_API_BASE=${AUTODL_API_BASE:-https://api.autodl.com}
+      - AUTODL_API_KEY=${AUTODL_API_KEY}
+      - AUTODL_DEFAULT_IMAGE_UUID=${AUTODL_DEFAULT_IMAGE_UUID}
+      - AUTODL_DEFAULT_CUDA_V_FROM=${AUTODL_DEFAULT_CUDA_V_FROM:-113}
+      - AUTODL_DEFAULT_GPU_AMOUNT=${AUTODL_DEFAULT_GPU_AMOUNT:-1}
+      - AUTODL_DEFAULT_SYSTEM_DISK_GB=${AUTODL_DEFAULT_SYSTEM_DISK_GB:-0}
+      - AUTODL_DATA_CENTER_LIST=${AUTODL_DATA_CENTER_LIST:-}
     volumes:
       - backend_data:/app/data
     restart: unless-stopped
@@ -18,9 +28,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://115.191.43.252:18760
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://115.191.43.252:18760}
     environment:
-      - NEXT_PUBLIC_API_URL=http://115.191.43.252:18760
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://115.191.43.252:18760}
     ports:
       - "18761:3000"
     depends_on:
