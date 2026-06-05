@@ -65,8 +65,10 @@ export default function InstanceDetailPage() {
   if (!dashboard) return <div className="max-w-6xl mx-auto px-4 py-8"><p className="text-muted-foreground">实例不存在</p></div>;
 
   const { instance, offering, runtime, latest_metric, metric_history, connect, tests_summary, connectivity_summary } = dashboard;
-  const diskText = `${(runtime.disk_used_gb ?? 0).toFixed(0)} GB / ${(runtime.disk_total_gb ?? 0).toFixed(0)} GB`;
-  const volumeText = runtime.volume_total_gb ? `${runtime.volume_used_gb} / ${runtime.volume_total_gb} GB` : "No Volume";
+  const diskUsed = runtime?.disk_used_gb ?? 0;
+  const diskTotal = runtime?.disk_total_gb ?? 0;
+  const diskText = `${diskUsed.toFixed(0)} GB / ${diskTotal.toFixed(0)} GB`;
+  const volumeText = runtime?.volume_total_gb ? `${runtime.volume_used_gb} / ${runtime.volume_total_gb} GB` : "No Volume";
 
   return (
     <div className="min-h-screen bg-[#0b0b0d]">
@@ -99,8 +101,8 @@ export default function InstanceDetailPage() {
               <TelemetryStatTile label="Volume Usage" value={volumeText} hint="外部卷" />
             </div>
             <div className="grid gap-4 xl:grid-cols-4">
-              <TelemetryStatTile label="Uptime" value={`${Math.floor(runtime.uptime_seconds / 3600)}h ${Math.floor((runtime.uptime_seconds % 3600) / 60)}m`} />
-              <TelemetryStatTile label="Processes" value={String(runtime.process_count)} hint="当前容器内活动进程" />
+              <TelemetryStatTile label="Uptime" value={`${Math.floor((runtime.uptime_seconds ?? 0) / 3600)}h ${Math.floor(((runtime.uptime_seconds ?? 0) % 3600) / 60)}m`} />
+              <TelemetryStatTile label="Processes" value={String(runtime.process_count ?? "--")} hint="当前容器内活动进程" />
               <TelemetryGauge
                 label="CPU Load"
                 value={latest_metric?.cpu_percent}

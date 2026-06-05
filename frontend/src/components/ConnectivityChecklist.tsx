@@ -42,7 +42,7 @@ export default function ConnectivityChecklist({ tests, onRunTest, loading }: Con
             <span className="text-muted-foreground">{t.target}</span>
             <div className="flex items-center gap-3">
               <span className={t.status_code === 200 ? "text-green-400" : "text-red-400"}>{t.status_code}</span>
-              <span className="text-muted-foreground">{t.latency_ms.toFixed(1)} ms</span>
+              <span className="text-muted-foreground">{t.latency_ms != null ? `${t.latency_ms.toFixed(1)} ms` : "--"}</span>
               <span className={t.is_direct ? "text-green-400" : "text-orange-400"}>
                 {t.is_direct ? "直连" : "代理"}
               </span>
