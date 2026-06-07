@@ -253,6 +253,15 @@ docker compose up -d --build
 - `18760`：后端 API
 - `18761`：前端页面
 
+**容器健康检查与启动顺序：**
+
+- `backend` 容器已配置 healthcheck，每 30 秒通过 `/readyz` 检查数据库就绪状态
+- `frontend` 容器已配置 healthcheck，每 30 秒检查页面可访问性
+- `depends_on` 使用 `condition: service_healthy`，确保前端在后端 healthcheck 通过后才启动
+- `docker compose ps` 可查看各容器健康状态
+
+`condition: service_healthy` 依赖较新的 Docker Compose 实现。如果当前环境 Compose 不支持该字段，启动时会直接报配置/schema 错误。遇到这种情况请升级 Compose，或临时将 `condition: service_healthy` 改回纯 `depends_on: - backend`（此时前端可能在后端就绪前启动，首次访问如遇 502，等待 10 秒后端就绪后刷新即可）。
+
 说明：
 
 - 当前配置不依赖开放 `22` 端口给公网访问
@@ -391,6 +400,21 @@ AUTODL_DATA_CENTER_LIST=
   - 优先检查 `AUTODL_API_BASE`、`AUTODL_API_KEY` 和镜像/规格配置；实现细节以 `docs/provider-autodl.md` 为准
 - `destroy 返回成功但 AutoDL 侧未释放`
   - destroy 链路已真实验证（power_off → 轮询 shutdown → release）。正常路径远程释放成功，本地状态同步清理。如遇网络中断、API 超时或 release 被拒，代码记录 warning 后仍清理本地状态——此时需登录 AutoDL 控制台确认远端实例是否已释放。
+
+## 发布前检查清单
+
+部署或演示前逐项确认，预计耗时 3 分钟。
+
+- [ ] `.env` 已从 `.env.example` 生成，关键变量已填写（`JWT_SECRET`、`CORS_ORIGIN`、`NEXT_PUBLIC_API_URL`）
+- [ ] CI 已通过（`pytest` 42 tests + frontend lint + build）
+- [ ] `docker compose ps` 显示 backend 和 frontend 均为 healthy
+- [ ] `curl http://<host>:18760/healthz` 返回 `{"status": "ok"}`
+- [ ] `curl http://<host>:18760/readyz` 返回 `{"status": "ready", "database": "ok"}`
+- [ ] 浏览器访问前端页面，GPU 市场正常加载（非白屏/非 CORS 报错）
+- [ ] 注册 → 登录 → 浏览 GPU → 创建实例 → 查看 Dashboard → 删除实例 冒烟通过
+- [ ] 如使用 AutoDL 真实 Provider：`AUTODL_API_KEY` 已配置，且 `.env` 未提交到版本控制
+- [ ] 云安全组仅开放 `18760`、`18761`，未开放 `22` 等无关端口
+- [ ] 敏感信息（密钥、token、密码）不在日志中明文可见
 
 ## 风险与取舍
 
