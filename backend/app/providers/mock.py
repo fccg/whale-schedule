@@ -33,6 +33,14 @@ class MockProvider(BaseProvider):
     async def list_gpu_offerings(self) -> list[dict]:
         return [g.copy() for g in MOCK_GPUS]
 
+    async def get_wallet_balance(self) -> dict:
+        return {
+            "provider": "mock",
+            "balance": 9999.0,
+            "currency": "CNY",
+            "fetched_at": "mock",
+        }
+
     async def create_instance(self, gpu_offering_id: str, config: dict) -> dict:
         instance = {
             "provider_instance_id": str(uuid.uuid4())[:8],

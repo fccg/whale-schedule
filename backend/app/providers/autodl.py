@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, timezone
 import httpx
 from app.config import (
     AUTODL_API_BASE,
@@ -95,6 +96,37 @@ class AutoDLProvider(BaseProvider):
                 return resp.json()
             except json.JSONDecodeError:
                 raise ProviderError("autodl", f"Invalid JSON response: {resp.text[:300]}")
+
+    @staticmethod
+    def _ensure_success(resp: dict, action: str) -> dict:
+        code = resp.get("code")
+        if code and code != "Success":
+            msg = resp.get("msg", "unknown error")
+            raise ProviderError("autodl", f"{action} failed [{code}]: {msg}")
+        data = resp.get("data")
+        return data if isinstance(data, dict) else {}
+
+    async def get_wallet_balance(self) -> dict:
+        if not self._enabled:
+            raise ProviderError("autodl", "Wallet balance unavailable without AUTODL_API_KEY")
+
+        try:
+            resp = await self._request("POST", "/api/v1/dev/wallet/balance", {})
+            data = self._ensure_success(resp, "Wallet balance")
+            assets = data.get("assets")
+            if assets is None:
+                raise ProviderError("autodl", "Wallet balance response missing assets")
+            balance = float(assets) / 1000.0
+            return {
+                "provider": "autodl",
+                "balance": balance,
+                "currency": "CNY",
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+            }
+        except ProviderError:
+            raise
+        except Exception as e:
+            raise ProviderError("autodl", f"Get wallet balance error: {str(e)}")
 
     async def list_gpu_offerings(self) -> list[dict]:
         if not self._enabled:

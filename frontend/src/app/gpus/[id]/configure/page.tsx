@@ -32,7 +32,22 @@ export default function ConfigurePage() {
 
   const selectedTemplate = payload?.templates.find((item) => item.id === templateId);
   const estimatedTotal = (payload?.offering.price_per_hour ?? 0) * durationH;
-  const remainingBudget = payload?.budget.remaining_budget ?? 0;
+  const walletBalance = payload?.funding.wallet_balance ?? 0;
+  const walletCurrency = payload?.funding.wallet_currency ?? "CNY";
+  const providerBudgetEnabled = payload?.funding.provider_budget_enabled ?? false;
+  const providerBudgetRemaining = payload?.funding.provider_budget_remaining ?? null;
+  const effectiveAvailable = providerBudgetRemaining == null
+    ? walletBalance
+    : Math.min(walletBalance, providerBudgetRemaining);
+  const walletInsufficient = estimatedTotal > walletBalance;
+  const providerBudgetInsufficient = providerBudgetEnabled
+    && providerBudgetRemaining !== null
+    && estimatedTotal > providerBudgetRemaining;
+  const insufficientReason = walletInsufficient
+    ? "wallet"
+    : providerBudgetInsufficient
+      ? "provider_budget"
+      : null;
 
   const handleCreate = async () => {
     if (!payload || !selectedTemplate) return;
@@ -118,7 +133,7 @@ export default function ConfigurePage() {
                 "gpu-agent 心跳",
                 "性能测试报告",
                 "连通性检查",
-                "预算阻断",
+                "资金约束校验",
               ].map((item) => (
                 <div key={item} className="rounded-2xl border border-white/6 bg-black/20 px-4 py-3 text-sm text-white">
                   {item}
@@ -138,7 +153,12 @@ export default function ConfigurePage() {
           <LaunchSummaryCard
             offering={offering}
             estimatedTotal={estimatedTotal}
-            remainingBudget={remainingBudget}
+            walletBalance={walletBalance}
+            walletCurrency={walletCurrency}
+            providerBudgetEnabled={providerBudgetEnabled}
+            providerBudgetRemaining={providerBudgetRemaining}
+            effectiveAvailable={effectiveAvailable}
+            insufficientReason={insufficientReason}
             durationH={durationH}
             diskGb={diskGb}
             loading={loading}

@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 from app.models.gpu_offering import get_gpu_offering, get_gpu_offerings, seed_mock_offerings, upsert_gpu_offerings
+from app.services.budget_service import get_provider_budget_config, get_provider_budget_remaining
+from app.services.provider_registry import get_provider
 from app.services.provider_registry import get_active_providers, get_active_provider_names
 
 logger = logging.getLogger(__name__)
@@ -178,12 +180,49 @@ async def get_market_offering(offering_id: str) -> dict | None:
     return _enrich_offering(row)
 
 
-async def get_launch_payload(offering_id: str, remaining_budget: float) -> dict | None:
+def _resolve_limiting_factor(wallet_balance: float, provider_budget_remaining: float | None) -> str:
+    if provider_budget_remaining is None:
+        return "none"
+    return "wallet" if wallet_balance <= provider_budget_remaining else "provider_budget"
+
+
+async def build_funding_summary(offering: dict, duration_h: int) -> dict:
+    estimated_total = round(offering["price_per_hour"] * duration_h, 2)
+    provider_name = offering["provider"]
+    provider = get_provider(provider_name)
+    wallet = await provider.get_wallet_balance()
+    wallet_balance = round(float(wallet["balance"]), 2)
+    provider_budget_config = await get_provider_budget_config(provider_name)
+    provider_budget_remaining = await get_provider_budget_remaining(provider_name)
+    provider_budget_enabled = provider_budget_remaining is not None
+
+    if provider_budget_remaining is None:
+        effective_available = wallet_balance
+    else:
+        effective_available = min(wallet_balance, round(provider_budget_remaining, 2))
+
+    return {
+        "provider": provider_name,
+        "estimated_total": estimated_total,
+        "wallet_balance": wallet_balance,
+        "wallet_currency": wallet.get("currency", offering.get("currency", "CNY")),
+        "provider_budget_enabled": provider_budget_enabled,
+        "provider_budget_total": round(float(provider_budget_config["total_budget"]), 2)
+        if provider_budget_enabled and provider_budget_config and provider_budget_config.get("total_budget") is not None
+        else None,
+        "provider_budget_remaining": round(provider_budget_remaining, 2) if provider_budget_remaining is not None else None,
+        "effective_available": round(effective_available, 2),
+        "limiting_factor": _resolve_limiting_factor(wallet_balance, provider_budget_remaining),
+    }
+
+
+async def get_launch_payload(offering_id: str) -> dict | None:
     offering = await get_market_offering(offering_id)
     if offering is None:
         return None
     default_duration_h = 6
     default_disk_gb = max(200, int(offering.get("disk_gb", 200) / 2))
+    funding = await build_funding_summary(offering, default_duration_h)
     return {
         "offering": offering,
         "templates": TEMPLATES,
@@ -192,9 +231,10 @@ async def get_launch_payload(offering_id: str, remaining_budget: float) -> dict 
             "disk_gb": default_disk_gb,
             "duration_h": default_duration_h,
         },
+        "funding": funding,
         "budget": {
-            "remaining_budget": round(remaining_budget, 2),
-            "estimated_total": round(offering["price_per_hour"] * default_duration_h, 2),
+            "remaining_budget": funding["provider_budget_remaining"],
+            "estimated_total": funding["estimated_total"],
             "price_per_hour": offering["price_per_hour"],
         },
         "recommended_config": {

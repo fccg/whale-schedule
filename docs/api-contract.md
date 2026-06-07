@@ -76,7 +76,8 @@ GPU Scheduling Platform 的 API 约定文档。面向前后端协作、评审和
 | 403 | `FORBIDDEN` | agent_token 验证失败 | agent |
 | 404 | `NOT_FOUND` | 资源不存在（实例/GPU offering） | instances, tests, gpus |
 | 409 | `CONFLICT` | 用户名已存在 | auth |
-| 422 | `BUDGET_EXCEEDED` | 预估费用超预算 | instances |
+| 422 | `PROVIDER_WALLET_INSUFFICIENT` | Provider 钱包余额不足 | instances |
+| 422 | `PROVIDER_BUDGET_EXCEEDED` | Provider 内部额度不足 | instances |
 | 422 | `NOT_READY` | 实例状态不允许操作（如未 ready 时触发测试） | tests |
 | 502 | `PROVIDER_ERROR` | Provider 调用失败或返回异常 | instances, 全局处理器 |
 | 500 | `INTERNAL_ERROR` | 未预期的内部错误 | 全局异常处理器 |
@@ -113,7 +114,51 @@ Failure (401):
 }
 ```
 
-### 5.2 创建实例 — `POST /api/instances`
+### 5.2 启动页详情 — `GET /api/gpus/{offering_id}/launch`
+
+需要 Bearer token 认证。
+
+```
+Success (200):
+{
+  "offering": { "id": "autodl-rtx4090-1", "provider": "autodl", ... },
+  "templates": [...],
+  "defaults": {
+    "template_id": "pytorch",
+    "disk_gb": 250,
+    "duration_h": 6
+  },
+  "funding": {
+    "provider": "autodl",
+    "estimated_total": 19.2,
+    "wallet_balance": 15.36,
+    "wallet_currency": "CNY",
+    "provider_budget_enabled": true,
+    "provider_budget_total": 100.0,
+    "provider_budget_remaining": 82.4,
+    "effective_available": 15.36,
+    "limiting_factor": "wallet"
+  },
+  "budget": {
+    "remaining_budget": 82.4,
+    "estimated_total": 19.2,
+    "price_per_hour": 3.2
+  },
+  "recommended_config": {
+    "template": "nvidia/pytorch:26.03-py3",
+    "disk_gb": 250,
+    "duration_h": 6
+  }
+}
+```
+
+说明：
+
+- `funding.wallet_balance` 是 Provider 实时钱包余额
+- `funding.provider_budget_remaining` 是平台对该 Provider 的内部额度剩余，未配置时为 `null`
+- AutoDL 启动页应以 `funding` 为主；`budget` 仅为兼容字段
+
+### 5.3 创建实例 — `POST /api/instances`
 
 需要 Bearer token 认证。
 
@@ -141,20 +186,34 @@ Success (200):
     ...
   },
   "estimated_cost": 3.20,
-  "launch_summary": {
-    "price_per_hour": 3.20,
+  "funding": {
+    "provider": "autodl",
     "estimated_total": 3.20,
-    "remaining_budget": 96.80
+    "wallet_balance": 15.36,
+    "wallet_currency": "CNY",
+    "provider_budget_enabled": true,
+    "provider_budget_total": 100.0,
+    "provider_budget_remaining": 79.2,
+    "effective_available": 15.36,
+    "limiting_factor": "wallet"
   }
 }
 ```
 
 ```
-Failure — 预算超限 (422):
+Failure — 钱包余额不足 (422):
 {
   "detail": {
-    "error": "BUDGET_EXCEEDED",
-    "message": "Estimated cost ¥3.20 exceeds remaining budget"
+    "error": "PROVIDER_WALLET_INSUFFICIENT",
+    "message": "AutoDL wallet balance is insufficient"
+  }
+}
+
+Failure — 平台内部额度不足 (422):
+{
+  "detail": {
+    "error": "PROVIDER_BUDGET_EXCEEDED",
+    "message": "Estimated cost exceeds platform AutoDL budget"
   }
 }
 
@@ -167,7 +226,7 @@ Failure — Provider 异常 (502):
 }
 ```
 
-### 5.3 实例 Dashboard — `GET /api/instances/{instance_id}/dashboard`
+### 5.4 实例 Dashboard — `GET /api/instances/{instance_id}/dashboard`
 
 需要 Bearer token 认证。
 
@@ -203,7 +262,7 @@ Failure (404):
 }
 ```
 
-### 5.4 触发性能测试 — `POST /api/instances/{instance_id}/tests`
+### 5.5 触发性能测试 — `POST /api/instances/{instance_id}/tests`
 
 实例必须处于 `ready` 状态。
 
@@ -237,7 +296,7 @@ Failure — 实例未就绪 (422):
 }
 ```
 
-### 5.5 Agent Heartbeat — `POST /api/agent/heartbeat`
+### 5.6 Agent Heartbeat — `POST /api/agent/heartbeat`
 
 无需 Bearer token，通过 `agent_token` 验证。
 

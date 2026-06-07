@@ -7,13 +7,19 @@ from app.middleware.auth import require_auth
 from app.models.instance import create_instance, get_instance, get_user_instances, destroy_instance, update_instance_status
 from app.models.metric import get_latest_metrics, get_metrics_history
 from app.services.instance_service import start_lifecycle_advance
-from app.services.budget_service import check_budget, log_budget, get_remaining_budget
+from app.services.budget_service import log_provider_budget
 from app.services.provider_registry import get_provider, is_provider_enabled
-from app.services.market_service import get_market_offering
+from app.services.market_service import build_funding_summary, get_market_offering
 from app.services.dashboard_service import build_instance_dashboard
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/instances", tags=["instances"])
+
+
+def _resolve_limiting_factor(wallet_balance: float, provider_budget_remaining: float | None) -> str:
+    if provider_budget_remaining is None:
+        return "none"
+    return "wallet" if wallet_balance <= provider_budget_remaining else "provider_budget"
 
 
 class CreateInstanceRequest(BaseModel):
@@ -40,10 +46,17 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
                 request.state.user_id, provider_name, body.gpu_offering_id)
 
     estimated_total = offering["price_per_hour"] * body.duration_h
-    if not await check_budget(request.state.user_id, estimated_total):
+    funding = await build_funding_summary(offering, body.duration_h)
+    if funding["wallet_balance"] < estimated_total:
         raise HTTPException(status_code=422, detail={
-            "error": "BUDGET_EXCEEDED",
-            "message": f"Estimated cost ¥{estimated_total:.2f} exceeds remaining budget",
+            "error": "PROVIDER_WALLET_INSUFFICIENT",
+            "message": "AutoDL wallet balance is insufficient",
+        })
+    provider_budget_remaining = funding.get("provider_budget_remaining")
+    if funding["provider_budget_enabled"] and provider_budget_remaining is not None and provider_budget_remaining < estimated_total:
+        raise HTTPException(status_code=422, detail={
+            "error": "PROVIDER_BUDGET_EXCEEDED",
+            "message": "Estimated cost exceeds platform AutoDL budget",
         })
 
     metadata = offering.get("metadata", {})
@@ -94,7 +107,8 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
         region=provider_result.get("region") or offering.get("region"),
     )
 
-    await log_budget(request.state.user_id, instance["id"], "create", estimated_total)
+    if funding["provider_budget_enabled"]:
+        await log_provider_budget(request.state.user_id, instance["id"], provider_name, "create", estimated_total)
     logger.info("Instance created: id=%s user=%s provider=%s",
                 instance["id"], request.state.user_id, provider_name)
     start_lifecycle_advance(instance["id"])
@@ -113,13 +127,26 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
     except Exception:
         logger.warning("Failed to enrich instance with snapshot info", exc_info=True)
 
+    provider_budget_remaining_after = None
+    if funding["provider_budget_enabled"] and provider_budget_remaining is not None:
+        provider_budget_remaining_after = max(0.0, provider_budget_remaining - estimated_total)
+    effective_available = funding["wallet_balance"] if provider_budget_remaining_after is None else min(
+        funding["wallet_balance"], provider_budget_remaining_after
+    )
+
     return {
         "instance": await get_instance(instance["id"]),
         "estimated_cost": estimated_total,
-        "launch_summary": {
-            "price_per_hour": offering["price_per_hour"],
+        "funding": {
+            "provider": provider_name,
             "estimated_total": estimated_total,
-            "remaining_budget": round(await get_remaining_budget(request.state.user_id), 2),
+            "wallet_balance": funding["wallet_balance"],
+            "wallet_currency": funding["wallet_currency"],
+            "provider_budget_enabled": funding["provider_budget_enabled"],
+            "provider_budget_total": funding["provider_budget_total"],
+            "provider_budget_remaining": round(provider_budget_remaining_after, 2) if provider_budget_remaining_after is not None else None,
+            "effective_available": round(effective_available, 2),
+            "limiting_factor": _resolve_limiting_factor(funding["wallet_balance"], provider_budget_remaining_after),
         },
     }
 
@@ -184,16 +211,16 @@ class EstimateRequest(BaseModel):
 
 
 @router.post("/estimate")
-async def estimate(request: Request, body: EstimateRequest, _payload: dict = Depends(require_auth)):
+async def estimate(body: EstimateRequest, _payload: dict = Depends(require_auth)):
     offering = await get_market_offering(body.gpu_offering_id)
     if offering is None:
         raise HTTPException(status_code=404, detail={"error": "NOT_FOUND", "message": "GPU offering not found"})
-    estimated_total = offering["price_per_hour"] * body.duration_h
-    remaining = await get_remaining_budget(request.state.user_id)
+    funding = await build_funding_summary(offering, body.duration_h)
     return {
         "price_per_hour": offering["price_per_hour"],
-        "estimated_total": estimated_total,
-        "remaining_budget": round(remaining, 2),
+        "estimated_total": funding["estimated_total"],
+        "remaining_budget": funding["effective_available"],
+        "funding": funding,
     }
 
 

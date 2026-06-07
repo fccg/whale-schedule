@@ -12,14 +12,24 @@ async def test_smoke_full_lifecycle(auth_client, raw_client):
     assert len(gpus) >= 1
     gpu_id = "mock-a100-1"
 
+    resp = await auth_client.get(f"/api/gpus/{gpu_id}/launch")
+    assert resp.status_code == 200
+    launch = resp.json()
+    assert launch["funding"]["provider"] == "mock"
+    assert launch["funding"]["wallet_balance"] == 9999.0
+    assert launch["funding"]["provider_budget_enabled"] is False
+
     resp = await auth_client.post("/api/instances/estimate", json={"gpu_offering_id": gpu_id, "duration_h": 1})
     assert resp.status_code == 200
     est = resp.json()
     assert "remaining_budget" in est
+    assert est["remaining_budget"] == est["funding"]["effective_available"]
 
     resp = await auth_client.post("/api/instances", json={"gpu_offering_id": gpu_id, "duration_h": 1})
     assert resp.status_code == 200
-    instance = resp.json()["instance"]
+    create_payload = resp.json()
+    assert create_payload["funding"]["wallet_balance"] == 9999.0
+    instance = create_payload["instance"]
     instance_id = instance["id"]
     agent_token = instance["agent_token"]
 

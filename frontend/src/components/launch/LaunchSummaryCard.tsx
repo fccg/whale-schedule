@@ -8,7 +8,12 @@ import type { GPUOffering } from "@/lib/api";
 interface LaunchSummaryCardProps {
   offering: GPUOffering;
   estimatedTotal: number;
-  remainingBudget: number;
+  walletBalance: number;
+  walletCurrency: string;
+  providerBudgetEnabled: boolean;
+  providerBudgetRemaining: number | null;
+  effectiveAvailable: number;
+  insufficientReason: "wallet" | "provider_budget" | null;
   durationH: number;
   diskGb: number;
   onLaunch: () => void;
@@ -18,18 +23,26 @@ interface LaunchSummaryCardProps {
 export default function LaunchSummaryCard({
   offering,
   estimatedTotal,
-  remainingBudget,
+  walletBalance,
+  walletCurrency,
+  providerBudgetEnabled,
+  providerBudgetRemaining,
+  effectiveAvailable,
+  insufficientReason,
   durationH,
   diskGb,
   onLaunch,
   loading,
 }: LaunchSummaryCardProps) {
-  const overBudget = estimatedTotal > remainingBudget;
+  const walletInsufficient = insufficientReason === "wallet";
+  const providerBudgetInsufficient = insufficientReason === "provider_budget";
+  const launchDisabled = Boolean(loading || walletInsufficient || providerBudgetInsufficient);
+  const currencySymbol = walletCurrency === "CNY" ? "¥" : `${walletCurrency} `;
 
   return (
     <Card className="sticky top-20 border-white/8 bg-[#141414]">
       <CardHeader className="border-b border-white/6">
-        <CardTitle className="text-xl">Launch Summary</CardTitle>
+        <CardTitle className="text-xl">资金摘要</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5 pt-5">
         <div className="space-y-1">
@@ -71,20 +84,40 @@ export default function LaunchSummaryCard({
             <span className="text-2xl font-semibold text-white">¥{estimatedTotal.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">预算剩余</span>
-            <span className={overBudget ? "text-red-400" : "text-emerald-400"}>¥{remainingBudget.toFixed(2)}</span>
+            <span className="text-sm text-muted-foreground">{offering.provider.toUpperCase()} 钱包余额</span>
+            <span className={walletInsufficient ? "text-red-400" : "text-emerald-400"}>
+              {currencySymbol}{walletBalance.toFixed(2)}
+            </span>
+          </div>
+          {providerBudgetEnabled && providerBudgetRemaining !== null && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">平台 {offering.provider.toUpperCase()} 内部额度</span>
+              <span className={providerBudgetInsufficient ? "text-red-400" : "text-emerald-400"}>
+                ¥{providerBudgetRemaining.toFixed(2)}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">实际可用额度</span>
+            <span className={launchDisabled ? "text-red-400" : "text-emerald-400"}>¥{effectiveAvailable.toFixed(2)}</span>
           </div>
         </div>
 
-        {overBudget && (
+        {walletInsufficient && (
           <div className="rounded-2xl border border-red-500/20 bg-red-500/8 p-4 text-sm text-red-300">
-            当前配置超过剩余预算，创建前需要缩短时长或切换更低价 GPU。
+            AutoDL 账户余额不足，请前往 AutoDL 控制台充值后重试。
+          </div>
+        )}
+
+        {providerBudgetInsufficient && (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/8 p-4 text-sm text-red-300">
+            平台分配给 AutoDL 的可用额度不足，请联系管理员调整预算。
           </div>
         )}
 
         <Button
           className="h-12 w-full bg-[#8A5CF5] text-base hover:bg-[#7A49F2]"
-          disabled={loading || overBudget}
+          disabled={launchDisabled}
           onClick={onLaunch}
         >
           {loading ? "创建中..." : "一键开机"}

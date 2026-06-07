@@ -72,13 +72,13 @@ export const api = {
   getLaunchPayload: (id: string) => request<LaunchPayload>(`/api/gpus/${id}/launch`),
 
   createInstance: (data: { gpu_offering_id: string; template?: string; disk_gb?: number; duration_h?: number }) =>
-    request<{ instance: Instance; estimated_cost: number; launch_summary: LaunchSummary }>("/api/instances", {
+    request<{ instance: Instance; estimated_cost: number; funding: FundingSummary }>("/api/instances", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   estimateCost: (gpu_offering_id: string, duration_h: number) =>
-    request<{ price_per_hour: number; estimated_total: number; remaining_budget: number }>("/api/instances/estimate", {
+    request<{ price_per_hour: number; estimated_total: number; remaining_budget: number; funding: FundingSummary }>("/api/instances/estimate", {
       method: "POST",
       body: JSON.stringify({ gpu_offering_id, duration_h }),
     }),
@@ -248,10 +248,16 @@ export interface TemplateOption {
   recommended: boolean;
 }
 
-export interface LaunchSummary {
-  price_per_hour: number;
+export interface FundingSummary {
+  provider: string;
   estimated_total: number;
-  remaining_budget: number;
+  wallet_balance: number;
+  wallet_currency: string;
+  provider_budget_enabled: boolean;
+  provider_budget_total: number | null;
+  provider_budget_remaining: number | null;
+  effective_available: number;
+  limiting_factor: "wallet" | "provider_budget" | "none";
 }
 
 export interface LaunchPayload {
@@ -262,7 +268,12 @@ export interface LaunchPayload {
     disk_gb: number;
     duration_h: number;
   };
-  budget: LaunchSummary;
+  funding: FundingSummary;
+  budget: {
+    remaining_budget: number | null;
+    estimated_total: number;
+    price_per_hour: number;
+  };
   recommended_config: {
     template: string;
     disk_gb: number;

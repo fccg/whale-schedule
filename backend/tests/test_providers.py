@@ -24,6 +24,14 @@ async def test_mock_create_instance():
 
 
 @pytest.mark.asyncio
+async def test_mock_wallet_balance():
+    provider = MockProvider()
+    result = await provider.get_wallet_balance()
+    assert result["provider"] == "mock"
+    assert result["balance"] == 9999.0
+
+
+@pytest.mark.asyncio
 async def test_mock_get_instance():
     provider = MockProvider()
     created = await provider.create_instance("mock-a100-1", {})

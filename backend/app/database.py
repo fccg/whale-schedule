@@ -147,6 +147,26 @@ CREATE TABLE IF NOT EXISTS budget_logs (
     created_at  TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS provider_budget_configs (
+    provider     TEXT PRIMARY KEY,
+    total_budget REAL,
+    currency     TEXT DEFAULT 'CNY',
+    enabled      INTEGER DEFAULT 1,
+    created_at   TEXT DEFAULT (datetime('now')),
+    updated_at   TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS provider_budget_logs (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     TEXT NOT NULL,
+    instance_id TEXT,
+    provider    TEXT NOT NULL,
+    action      TEXT NOT NULL,
+    amount      REAL NOT NULL,
+    currency    TEXT DEFAULT 'CNY',
+    created_at  TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS provider_configs (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     provider    TEXT NOT NULL UNIQUE,

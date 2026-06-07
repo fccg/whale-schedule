@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from app.middleware.auth import require_auth
 from app.services.market_service import get_launch_payload, get_market_offering, list_market_offerings
-from app.services.budget_service import get_remaining_budget
 from fastapi import Request
 
 router = APIRouter(prefix="/api/gpus", tags=["gpus"])
@@ -41,9 +40,8 @@ async def gpu_detail(offering_id: str, _payload: dict = Depends(require_auth)):
 
 
 @router.get("/{offering_id}/launch")
-async def launch_detail(request: Request, offering_id: str, _payload: dict = Depends(require_auth)):
-    remaining = await get_remaining_budget(request.state.user_id)
-    payload = await get_launch_payload(offering_id, remaining)
+async def launch_detail(offering_id: str, _payload: dict = Depends(require_auth)):
+    payload = await get_launch_payload(offering_id)
     if payload is None:
         raise HTTPException(status_code=404, detail={"error": "NOT_FOUND", "message": "GPU offering not found"})
     return payload

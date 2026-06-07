@@ -15,6 +15,10 @@ class BaseProvider(ABC):
         ...
 
     @abstractmethod
+    async def get_wallet_balance(self) -> dict:
+        ...
+
+    @abstractmethod
     async def create_instance(self, gpu_offering_id: str, config: dict) -> dict:
         ...
 
