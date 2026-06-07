@@ -1,4 +1,6 @@
 import json
+import os
+import sqlite3
 import pytest
 from app.providers.mock import MockProvider
 from app.providers.autodl import AutoDLProvider, AUTODL_STATIC_OFFERINGS
@@ -236,3 +238,47 @@ async def test_market_model_filters_follow_selected_family():
     assert payload["filters"]["families"] == ["A", "H", "RTX"]
     assert "RTX 4090" in payload["filters"]["models"]
     assert "A100-80G" not in payload["filters"]["models"]
+
+
+@pytest.mark.asyncio
+async def test_gpu_family_migration_normalizes_legacy_values():
+    import app.database
+
+    if app.database._db:
+        await app.database._db.close()
+        app.database._db = None
+
+    db_path = os.environ["DATABASE_PATH"]
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    if os.path.exists(db_path):
+        os.remove(db_path)
+
+    conn = sqlite3.connect(db_path)
+    conn.executescript(app.database.SCHEMA)
+    conn.execute(
+        """
+        INSERT INTO gpu_offerings (
+            id, provider, gpu_family, gpu_model, vram_gb, cpu_cores, memory_gb,
+            disk_gb, price_per_hour, currency, region, available, metadata_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        ("legacy-a100", "mock", "A100", "A100-80G", 80.0, 16, 128.0, 500.0, 8.5, "CNY", "Beijing", 1, "{}"),
+    )
+    conn.execute(
+        """
+        INSERT INTO gpu_offerings (
+            id, provider, gpu_family, gpu_model, vram_gb, cpu_cores, memory_gb,
+            disk_gb, price_per_hour, currency, region, available, metadata_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        ("legacy-6090", "mock", "6090", "RTX 6090", 48.0, 16, 128.0, 500.0, 4.5, "CNY", "Hangzhou", 1, "{}"),
+    )
+    conn.commit()
+    conn.close()
+
+    db = await app.database.get_db()
+    cursor = await db.execute("SELECT id, gpu_family FROM gpu_offerings ORDER BY id")
+    rows = {row["id"]: row["gpu_family"] for row in await cursor.fetchall()}
+
+    assert rows["legacy-a100"] == "A"
+    assert rows["legacy-6090"] == "RTX"

@@ -159,4 +159,7 @@ MIGRATIONS = [
     "ALTER TABLE instances ADD COLUMN connect_url TEXT",
     "ALTER TABLE instances ADD COLUMN jupyter_url TEXT",
     "ALTER TABLE instances ADD COLUMN metadata_json TEXT DEFAULT '{}'",
+    "UPDATE gpu_offerings SET gpu_family = 'A' WHERE gpu_family IN ('A100', 'A800', 'A40', 'A5000', 'A6000')",
+    "UPDATE gpu_offerings SET gpu_family = 'H' WHERE gpu_family IN ('H100', 'H800', 'H20')",
+    "UPDATE gpu_offerings SET gpu_family = 'RTX' WHERE gpu_family IN ('4090', '5090', '6090', 'RTX 4090', 'RTX 5090', 'RTX 6090', 'RTX 6000 PRO', 'PRO6000')",
 ]
