@@ -15,11 +15,21 @@ from app.providers.base import BaseProvider, ProviderError
 
 logger = logging.getLogger(__name__)
 
+AUTODL_GPU_SPEC_UUID_RULES = (
+    (("4090D",), "4090D"),
+    (("H80080G", "H800"), "h800"),
+    (("PRO600096G", "RTX6000PRO", "PRO6000"), "pro6000-p"),
+    (("4080S32G", "RTX4080S", "4080S"), "v-32g-p"),
+    (("309048G", "RTX3090", "3090"), "v-48g-350w"),
+    (("509032G", "RTX5090", "5090"), "5090-p"),
+    (("409048G", "RTX4090", "4090"), "v-48g"),
+)
+
 AUTODL_STATIC_OFFERINGS = [
     {
         "id": "autodl-pro6000-1", "provider": "autodl",
-        "gpu_family": "RTX", "gpu_model": "RTX 6000 Pro",
-        "vram_gb": 48.0, "cpu_cores": 16, "memory_gb": 128.0,
+        "gpu_family": "RTX", "gpu_model": "PRO6000-96G",
+        "vram_gb": 96.0, "cpu_cores": 16, "memory_gb": 128.0,
         "disk_gb": 500.0, "price_per_hour": 3.80, "currency": "CNY",
         "region": "Beijing", "available": True,
         "metadata": {
@@ -29,34 +39,34 @@ AUTODL_STATIC_OFFERINGS = [
     },
     {
         "id": "autodl-4090-1", "provider": "autodl",
-        "gpu_family": "RTX", "gpu_model": "RTX 4090",
-        "vram_gb": 24.0, "cpu_cores": 16, "memory_gb": 96.0,
+        "gpu_family": "RTX", "gpu_model": "4090-48G",
+        "vram_gb": 48.0, "cpu_cores": 16, "memory_gb": 96.0,
         "disk_gb": 500.0, "price_per_hour": 3.20, "currency": "CNY",
         "region": "Beijing", "available": True,
         "metadata": {
-            "gpu_spec_uuid": "rtx4090",
+            "gpu_spec_uuid": "v-48g",
             "cuda_v_from": AUTODL_DEFAULT_CUDA_V_FROM,
         },
     },
     {
         "id": "autodl-5090-1", "provider": "autodl",
-        "gpu_family": "RTX", "gpu_model": "RTX 5090",
+        "gpu_family": "RTX", "gpu_model": "5090-32G",
         "vram_gb": 32.0, "cpu_cores": 20, "memory_gb": 128.0,
         "disk_gb": 600.0, "price_per_hour": 4.10, "currency": "CNY",
         "region": "Shanghai", "available": True,
         "metadata": {
-            "gpu_spec_uuid": "rtx5090",
+            "gpu_spec_uuid": "5090-p",
             "cuda_v_from": AUTODL_DEFAULT_CUDA_V_FROM,
         },
     },
     {
-        "id": "autodl-h100-1", "provider": "autodl",
-        "gpu_family": "H", "gpu_model": "H100-80G",
+        "id": "autodl-h800-1", "provider": "autodl",
+        "gpu_family": "H", "gpu_model": "H800-80G",
         "vram_gb": 80.0, "cpu_cores": 32, "memory_gb": 256.0,
         "disk_gb": 1000.0, "price_per_hour": 16.00, "currency": "CNY",
         "region": "Beijing", "available": True,
         "metadata": {
-            "gpu_spec_uuid": "h100-80g",
+            "gpu_spec_uuid": "h800",
             "cuda_v_from": AUTODL_DEFAULT_CUDA_V_FROM,
         },
     },
@@ -106,6 +116,18 @@ class AutoDLProvider(BaseProvider):
         data = resp.get("data")
         return data if isinstance(data, dict) else {}
 
+    @staticmethod
+    def _normalize_gpu_model(model_name: str) -> str:
+        return "".join(ch for ch in model_name.upper() if ch.isalnum())
+
+    @classmethod
+    def _resolve_gpu_spec_uuid(cls, model_name: str, provider_gpu_spec_uuid: str = "") -> str:
+        normalized = cls._normalize_gpu_model(model_name)
+        for tokens, gpu_spec_uuid in AUTODL_GPU_SPEC_UUID_RULES:
+            if any(token in normalized for token in tokens):
+                return gpu_spec_uuid
+        return provider_gpu_spec_uuid
+
     async def get_wallet_balance(self) -> dict:
         if not self._enabled:
             raise ProviderError("autodl", "Wallet balance unavailable without AUTODL_API_KEY")
@@ -153,6 +175,7 @@ class AutoDLProvider(BaseProvider):
     def _map_instance_to_offering(self, inst: dict) -> dict:
         uuid = inst.get("uuid", inst.get("instance_uuid", ""))
         gpu_alias = inst.get("machine_alias", "") or inst.get("snapshot_gpu_alias_name", "") or inst.get("gpu_spec_uuid", "GPU")
+        gpu_spec_uuid = self._resolve_gpu_spec_uuid(gpu_alias, inst.get("gpu_spec_uuid", ""))
         gpu_family = self._infer_family(gpu_alias)
         status = inst.get("status", inst.get("instance_status", ""))
         return {
@@ -169,7 +192,7 @@ class AutoDLProvider(BaseProvider):
             "region": inst.get("region_sign", inst.get("region_name", "Unknown")),
             "available": status in ("running", "available"),
             "metadata": {
-                "gpu_spec_uuid": inst.get("gpu_spec_uuid", ""),
+                "gpu_spec_uuid": gpu_spec_uuid,
                 "instance_uuid": uuid,
                 "cuda_v_from": AUTODL_DEFAULT_CUDA_V_FROM,
                 "status": status,

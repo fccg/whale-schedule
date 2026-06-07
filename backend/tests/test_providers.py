@@ -121,6 +121,17 @@ async def test_autodl_family_inference():
     assert provider._infer_family("RTX 5090") == "RTX"
 
 
+def test_autodl_gpu_spec_uuid_mapping_uses_official_table():
+    provider = AutoDLProvider()
+    assert provider._resolve_gpu_spec_uuid("H800-80G") == "h800"
+    assert provider._resolve_gpu_spec_uuid("RTX 4090") == "v-48g"
+    assert provider._resolve_gpu_spec_uuid("PRO6000-96G") == "pro6000-p"
+    assert provider._resolve_gpu_spec_uuid("4080(S)-32G") == "v-32g-p"
+    assert provider._resolve_gpu_spec_uuid("3090-48G") == "v-48g-350w"
+    assert provider._resolve_gpu_spec_uuid("RTX 5090") == "5090-p"
+    assert provider._resolve_gpu_spec_uuid("4090D") == "4090D"
+
+
 def test_provider_registry_has_mock():
     from app.services.provider_registry import get_provider, get_active_provider_names, is_provider_enabled
     assert is_provider_enabled("mock")
