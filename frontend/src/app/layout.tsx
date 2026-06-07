@@ -51,7 +51,7 @@ function Nav() {
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="font-bold text-lg text-[#8A5CF5]">
-            GPUSchedule
+            WhaleSchedule
           </Link>
           <Link
             href="/"
