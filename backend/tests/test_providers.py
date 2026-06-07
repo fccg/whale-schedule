@@ -104,10 +104,11 @@ async def test_autodl_destroy_instance():
 @pytest.mark.asyncio
 async def test_autodl_family_inference():
     provider = AutoDLProvider()
-    assert provider._infer_family("A100-80G") == "A100"
+    assert provider._infer_family("A100-80G") == "A"
     assert provider._infer_family("H800-80G") == "H"
     assert provider._infer_family("H100-80G") == "H"
-    assert provider._infer_family("RTX 6090 PRO") == "6090"
+    assert provider._infer_family("RTX 6090 PRO") == "RTX"
+    assert provider._infer_family("RTX 5090") == "RTX"
 
 
 def test_provider_registry_has_mock():
@@ -138,7 +139,7 @@ def test_enrich_offering_parses_metadata_json():
     from app.services.market_service import _enrich_offering
     row = {
         "id": "autodl-pro6000-1", "provider": "autodl",
-        "gpu_family": "6090", "gpu_model": "RTX 6000 Pro",
+        "gpu_family": "RTX", "gpu_model": "RTX 6000 Pro",
         "vram_gb": 48.0, "cpu_cores": 16, "memory_gb": 128.0,
         "disk_gb": 500.0, "price_per_hour": 3.80, "currency": "CNY",
         "region": "Beijing", "available": True,
@@ -155,7 +156,7 @@ def test_enrich_offering_handles_invalid_metadata_json():
     from app.services.market_service import _enrich_offering
     row = {
         "id": "autodl-bad", "provider": "autodl",
-        "gpu_family": "6090", "gpu_model": "Bad GPU",
+        "gpu_family": "RTX", "gpu_model": "Bad GPU",
         "vram_gb": 1.0, "cpu_cores": 1, "memory_gb": 1.0,
         "disk_gb": 1.0, "price_per_hour": 1.0, "currency": "CNY",
         "region": "X", "available": False,
@@ -201,7 +202,7 @@ async def test_market_offering_contains_metadata_with_gpu_spec_uuid():
         "INSERT OR REPLACE INTO gpu_offerings (id, provider, gpu_family, gpu_model, "
         "vram_gb, cpu_cores, memory_gb, disk_gb, price_per_hour, currency, region, available, metadata_json) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        ("test-autodl-meta", "autodl", "6090", "Test GPU", 48.0, 16, 128.0, 500.0,
+        ("test-autodl-meta", "autodl", "RTX", "Test GPU", 48.0, 16, 128.0, 500.0,
          3.80, "CNY", "Beijing", 1, json.dumps(metadata)),
     )
     await db.commit()
@@ -215,3 +216,23 @@ async def test_market_offering_contains_metadata_with_gpu_spec_uuid():
     # Cleanup
     await db.execute("DELETE FROM gpu_offerings WHERE id = ?", ("test-autodl-meta",))
     await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_market_filters_are_dynamic():
+    from app.services.market_service import list_market_offerings
+
+    payload = await list_market_offerings(provider="mock")
+    assert payload["filters"]["families"] == ["A", "H", "RTX"]
+    assert "RTX 5090" in payload["filters"]["models"]
+    assert "mock" in payload["filters"]["providers"]
+
+
+@pytest.mark.asyncio
+async def test_market_model_filters_follow_selected_family():
+    from app.services.market_service import list_market_offerings
+
+    payload = await list_market_offerings(provider="mock", family="RTX")
+    assert payload["filters"]["families"] == ["A", "H", "RTX"]
+    assert "RTX 4090" in payload["filters"]["models"]
+    assert "A100-80G" not in payload["filters"]["models"]

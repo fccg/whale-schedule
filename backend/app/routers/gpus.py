@@ -12,6 +12,7 @@ async def list_gpus(
     request: Request,
     search: str | None = Query(None),
     family: str | None = Query(None),
+    model: str | None = Query(None),
     provider: str | None = Query(None),
     region: str | None = Query(None),
     min_price: float | None = Query(None),
@@ -21,7 +22,7 @@ async def list_gpus(
     _ = request
     payload = await list_market_offerings(
         search=search,
-        family=family, provider=provider, region=region,
+        family=family, model=model, provider=provider, region=region,
         min_price=min_price, max_price=max_price,
         available_only=True,
     )

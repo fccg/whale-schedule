@@ -25,6 +25,7 @@ async def upsert_gpu_offerings(offerings: list[dict]):
 
 async def get_gpu_offerings(
     family: str | None = None,
+    model: str | None = None,
     provider: str | None = None,
     min_price: float | None = None,
     max_price: float | None = None,
@@ -36,6 +37,9 @@ async def get_gpu_offerings(
     if family:
         query += " AND gpu_family = ?"
         params.append(family)
+    if model:
+        query += " AND gpu_model = ?"
+        params.append(model)
     if provider:
         query += " AND provider = ?"
         params.append(provider)
@@ -66,19 +70,19 @@ async def seed_mock_offerings():
     if count > 0:
         return
     mock_data = [
-        ("mock-a100-1", "mock", "A100", "A100-80G", 80.0, 16, 128.0, 500.0, 8.50, "CNY", "Beijing"),
-        ("mock-a100-2", "mock", "A100", "A100-40G", 40.0, 12, 96.0, 400.0, 6.80, "CNY", "Shanghai"),
-        ("mock-a100-3", "mock", "A100", "A100-80G", 80.0, 24, 192.0, 800.0, 9.10, "CNY", "Shenzhen"),
+        ("mock-a100-1", "mock", "A", "A100-80G", 80.0, 16, 128.0, 500.0, 8.50, "CNY", "Beijing"),
+        ("mock-a100-2", "mock", "A", "A100-40G", 40.0, 12, 96.0, 400.0, 6.80, "CNY", "Shanghai"),
+        ("mock-a100-3", "mock", "A", "A100-80G", 80.0, 24, 192.0, 800.0, 9.10, "CNY", "Shenzhen"),
         ("mock-h800-1", "mock", "H", "H800-80G", 80.0, 32, 256.0, 1000.0, 12.00, "CNY", "Beijing"),
         ("mock-h800-2", "mock", "H", "H800-80G", 80.0, 32, 256.0, 800.0, 11.50, "CNY", "Shenzhen"),
         ("mock-h100-1", "mock", "H", "H100-80G", 80.0, 32, 256.0, 1000.0, 15.00, "CNY", "Beijing"),
         ("mock-h100-2", "mock", "H", "H100-80G", 80.0, 48, 384.0, 1200.0, 16.20, "CNY", "Shanghai"),
-        ("mock-4090-1", "mock", "6090", "RTX 4090", 24.0, 16, 64.0, 300.0, 3.60, "CNY", "Hangzhou"),
-        ("mock-4090-2", "mock", "6090", "RTX 4090", 24.0, 16, 64.0, 300.0, 3.80, "CNY", "Chengdu"),
-        ("mock-6090-1", "mock", "6090", "RTX 6090", 48.0, 16, 128.0, 500.0, 4.50, "CNY", "Hangzhou"),
-        ("mock-6090-2", "mock", "6090", "RTX 6090", 48.0, 16, 128.0, 500.0, 4.20, "CNY", "Guangzhou"),
-        ("mock-5090-1", "mock", "6090", "RTX 5090", 32.0, 20, 96.0, 500.0, 4.00, "CNY", "Hong Kong"),
-        ("mock-5090-2", "mock", "6090", "RTX 5090", 32.0, 24, 128.0, 600.0, 4.30, "CNY", "Tokyo"),
+        ("mock-4090-1", "mock", "RTX", "RTX 4090", 24.0, 16, 64.0, 300.0, 3.60, "CNY", "Hangzhou"),
+        ("mock-4090-2", "mock", "RTX", "RTX 4090", 24.0, 16, 64.0, 300.0, 3.80, "CNY", "Chengdu"),
+        ("mock-6090-1", "mock", "RTX", "RTX 6090", 48.0, 16, 128.0, 500.0, 4.50, "CNY", "Hangzhou"),
+        ("mock-6090-2", "mock", "RTX", "RTX 6090", 48.0, 16, 128.0, 500.0, 4.20, "CNY", "Guangzhou"),
+        ("mock-5090-1", "mock", "RTX", "RTX 5090", 32.0, 20, 96.0, 500.0, 4.00, "CNY", "Hong Kong"),
+        ("mock-5090-2", "mock", "RTX", "RTX 5090", 32.0, 24, 128.0, 600.0, 4.30, "CNY", "Tokyo"),
     ]
     for row in mock_data:
         await db.execute(

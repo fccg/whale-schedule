@@ -233,6 +233,7 @@ export interface MarketplaceResponse {
   total: number;
   filters: {
     families: string[];
+    models: string[];
     providers: string[];
     regions: string[];
   };

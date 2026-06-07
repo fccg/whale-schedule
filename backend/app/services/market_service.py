@@ -61,9 +61,9 @@ TEMPLATES = [
 
 def _family_badges(family: str) -> list[str]:
     mapping = {
-        "A100": ["training", "80GB"],
+        "A": ["training", "accelerator"],
         "H": ["premium", "large-vram"],
-        "6090": ["cost-effective", "inference"],
+        "RTX": ["cost-effective", "inference"],
     }
     return mapping.get(family, ["general"])
 
@@ -107,6 +107,7 @@ async def _sync_provider_offerings():
 
 async def list_market_offerings(
     family: str | None = None,
+    model: str | None = None,
     provider: str | None = None,
     region: str | None = None,
     min_price: float | None = None,
@@ -121,34 +122,45 @@ async def list_market_offerings(
         logger.warning("Provider sync failed, using cached offerings", exc_info=True)
 
     rows = await get_gpu_offerings(
-        family=family,
         provider=provider,
         min_price=min_price,
         max_price=max_price,
         available_only=available_only,
     )
-    items = [_enrich_offering(row) for row in rows]
+    candidate_items = [_enrich_offering(row) for row in rows]
     if region:
-        items = [item for item in items if item.get("region") == region]
+        candidate_items = [item for item in candidate_items if item.get("region") == region]
     if search:
         lowered = search.lower()
-        items = [
-            item for item in items
+        candidate_items = [
+            item for item in candidate_items
             if lowered in item.get("gpu_model", "").lower()
             or lowered in item.get("region", "").lower()
             or lowered in item.get("provider", "").lower()
             or lowered in item.get("host_display_name", "").lower()
         ]
 
-    all_providers = get_active_provider_names()
-    all_regions = sorted({item.get("region", "") for item in items if item.get("region")})
+    families = sorted({item.get("gpu_family", "") for item in candidate_items if item.get("gpu_family")})
+    providers = sorted({item.get("provider", "") for item in candidate_items if item.get("provider")})
+    all_regions = sorted({item.get("region", "") for item in candidate_items if item.get("region")})
+    model_scope = candidate_items if not family else [
+        item for item in candidate_items if item.get("gpu_family") == family
+    ]
+    models = sorted({item.get("gpu_model", "") for item in model_scope if item.get("gpu_model")})
+
+    items = candidate_items
+    if family:
+        items = [item for item in items if item.get("gpu_family") == family]
+    if model:
+        items = [item for item in items if item.get("gpu_model") == model]
 
     return {
         "items": items,
         "total": len(items),
         "filters": {
-            "families": ["A100", "H", "6090"],
-            "providers": all_providers,
+            "families": families,
+            "models": models,
+            "providers": providers or get_active_provider_names(),
             "regions": all_regions,
         },
     }

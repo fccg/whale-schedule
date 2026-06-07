@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 AUTODL_STATIC_OFFERINGS = [
     {
         "id": "autodl-pro6000-1", "provider": "autodl",
-        "gpu_family": "6090", "gpu_model": "RTX 6000 Pro",
+        "gpu_family": "RTX", "gpu_model": "RTX 6000 Pro",
         "vram_gb": 48.0, "cpu_cores": 16, "memory_gb": 128.0,
         "disk_gb": 500.0, "price_per_hour": 3.80, "currency": "CNY",
         "region": "Beijing", "available": True,
@@ -27,24 +27,24 @@ AUTODL_STATIC_OFFERINGS = [
         },
     },
     {
-        "id": "autodl-a100-1", "provider": "autodl",
-        "gpu_family": "A100", "gpu_model": "A100-80G",
-        "vram_gb": 80.0, "cpu_cores": 24, "memory_gb": 192.0,
-        "disk_gb": 800.0, "price_per_hour": 9.50, "currency": "CNY",
+        "id": "autodl-4090-1", "provider": "autodl",
+        "gpu_family": "RTX", "gpu_model": "RTX 4090",
+        "vram_gb": 24.0, "cpu_cores": 16, "memory_gb": 96.0,
+        "disk_gb": 500.0, "price_per_hour": 3.20, "currency": "CNY",
         "region": "Beijing", "available": True,
         "metadata": {
-            "gpu_spec_uuid": "a100-80g",
+            "gpu_spec_uuid": "rtx4090",
             "cuda_v_from": AUTODL_DEFAULT_CUDA_V_FROM,
         },
     },
     {
-        "id": "autodl-h800-1", "provider": "autodl",
-        "gpu_family": "H", "gpu_model": "H800-80G",
-        "vram_gb": 80.0, "cpu_cores": 32, "memory_gb": 256.0,
-        "disk_gb": 1000.0, "price_per_hour": 13.00, "currency": "CNY",
-        "region": "Beijing", "available": True,
+        "id": "autodl-5090-1", "provider": "autodl",
+        "gpu_family": "RTX", "gpu_model": "RTX 5090",
+        "vram_gb": 32.0, "cpu_cores": 20, "memory_gb": 128.0,
+        "disk_gb": 600.0, "price_per_hour": 4.10, "currency": "CNY",
+        "region": "Shanghai", "available": True,
         "metadata": {
-            "gpu_spec_uuid": "h800-80g",
+            "gpu_spec_uuid": "rtx5090",
             "cuda_v_from": AUTODL_DEFAULT_CUDA_V_FROM,
         },
     },
@@ -147,11 +147,13 @@ class AutoDLProvider(BaseProvider):
     @staticmethod
     def _infer_family(model_name: str) -> str:
         m = model_name.upper()
-        if "A100" in m:
-            return "A100"
         if any(x in m for x in ("H100", "H800", "H20")):
             return "H"
-        return "6090"
+        if any(x in m for x in ("A100", "A800", "A40", "A5000", "A6000")):
+            return "A"
+        if any(x in m for x in ("RTX", "4090", "5090", "6000 PRO", "PRO6000")):
+            return "RTX"
+        return "RTX"
 
     async def create_instance(self, gpu_offering_id: str, config: dict) -> dict:
         gpu_spec_uuid = config.get("gpu_spec_uuid", "")

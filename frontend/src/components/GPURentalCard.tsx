@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import type { GPUOffering } from "@/lib/api";
 
 const FAMILY_COLORS: Record<string, string> = {
-  A100: "text-blue-400",
+  A: "text-blue-400",
   H: "text-green-400",
-  "6090": "text-orange-400",
+  RTX: "text-orange-400",
 };
 
 interface GPURentalCardProps {

@@ -2,10 +2,10 @@ import uuid
 from app.providers.base import BaseProvider
 
 MOCK_GPUS = [
-    {"id": "mock-a100-1", "provider": "mock", "gpu_family": "A100", "gpu_model": "A100-80G",
+    {"id": "mock-a100-1", "provider": "mock", "gpu_family": "A", "gpu_model": "A100-80G",
      "vram_gb": 80.0, "cpu_cores": 16, "memory_gb": 128.0, "disk_gb": 500.0,
      "price_per_hour": 8.50, "currency": "CNY", "region": "Beijing", "available": True},
-    {"id": "mock-a100-2", "provider": "mock", "gpu_family": "A100", "gpu_model": "A100-40G",
+    {"id": "mock-a100-2", "provider": "mock", "gpu_family": "A", "gpu_model": "A100-40G",
      "vram_gb": 40.0, "cpu_cores": 12, "memory_gb": 96.0, "disk_gb": 400.0,
      "price_per_hour": 6.80, "currency": "CNY", "region": "Shanghai", "available": True},
     {"id": "mock-h800-1", "provider": "mock", "gpu_family": "H", "gpu_model": "H800-80G",
@@ -17,10 +17,10 @@ MOCK_GPUS = [
     {"id": "mock-h100-1", "provider": "mock", "gpu_family": "H", "gpu_model": "H100-80G",
      "vram_gb": 80.0, "cpu_cores": 32, "memory_gb": 256.0, "disk_gb": 1000.0,
      "price_per_hour": 15.00, "currency": "CNY", "region": "Beijing", "available": True},
-    {"id": "mock-6090-1", "provider": "mock", "gpu_family": "6090", "gpu_model": "RTX 6090",
+    {"id": "mock-6090-1", "provider": "mock", "gpu_family": "RTX", "gpu_model": "RTX 6090",
      "vram_gb": 48.0, "cpu_cores": 16, "memory_gb": 128.0, "disk_gb": 500.0,
      "price_per_hour": 4.50, "currency": "CNY", "region": "Hangzhou", "available": True},
-    {"id": "mock-6090-2", "provider": "mock", "gpu_family": "6090", "gpu_model": "RTX 6090",
+    {"id": "mock-6090-2", "provider": "mock", "gpu_family": "RTX", "gpu_model": "RTX 6090",
      "vram_gb": 48.0, "cpu_cores": 16, "memory_gb": 128.0, "disk_gb": 500.0,
      "price_per_hour": 4.20, "currency": "CNY", "region": "Guangzhou", "available": True},
 ]

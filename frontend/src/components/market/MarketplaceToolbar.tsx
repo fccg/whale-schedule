@@ -2,21 +2,29 @@
 
 interface MarketplaceToolbarProps {
   total: number;
+  families: string[];
   family: string;
   onFamilyChange: (value: string) => void;
   sort: string;
   onSortChange: (value: string) => void;
 }
-
-const FAMILY_TABS = ["All", "A100", "H", "6090"];
 const SORTS = [
   { value: "price_asc", label: "价格最低" },
   { value: "price_desc", label: "价格最高" },
   { value: "reliability", label: "稳定性" },
 ];
 
+function familyLabel(value: string) {
+  if (value === "A") return "A 系列";
+  if (value === "H") return "H 系列";
+  if (value === "RTX") return "RTX 系列";
+  if (value === "OTHER") return "其他";
+  return value;
+}
+
 export default function MarketplaceToolbar({
   total,
+  families,
   family,
   onFamilyChange,
   sort,
@@ -36,7 +44,7 @@ export default function MarketplaceToolbar({
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap gap-2">
-          {FAMILY_TABS.map((item) => (
+          {["All", ...families].map((item) => (
             <button
               key={item}
               type="button"
@@ -47,7 +55,7 @@ export default function MarketplaceToolbar({
                   : "bg-black/20 text-muted-foreground hover:text-white"
               }`}
             >
-              {item === "All" ? "全部 GPU" : item}
+              {item === "All" ? "全部 GPU" : familyLabel(item)}
             </button>
           ))}
         </div>

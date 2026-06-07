@@ -7,34 +7,49 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface MarketplaceSidebarProps {
   search: string;
+  families: string[];
   family: string;
+  models: string[];
+  selectedModel: string;
   maxPrice: number;
+  providers: string[];
   provider: string;
   availableOnly: boolean;
   regions: string[];
   selectedRegion: string;
   onSearchChange: (value: string) => void;
   onFamilyChange: (value: string) => void;
+  onModelChange: (value: string) => void;
   onProviderChange: (value: string) => void;
   onMaxPriceChange: (value: number) => void;
   onRegionChange: (value: string) => void;
   onAvailableOnlyChange: (value: boolean) => void;
 }
 
-const FAMILIES = ["All", "A100", "H", "6090"];
-const PROVIDERS = ["all", "mock"];
+function familyLabel(value: string) {
+  if (value === "A") return "A 系列";
+  if (value === "H") return "H 系列";
+  if (value === "RTX") return "RTX 系列";
+  if (value === "OTHER") return "其他";
+  return value;
+}
 
 export default function MarketplaceSidebar(props: MarketplaceSidebarProps) {
   const {
     search,
+    families,
     family,
+    models,
+    selectedModel,
     maxPrice,
+    providers,
     provider,
     availableOnly,
     regions,
     selectedRegion,
     onSearchChange,
     onFamilyChange,
+    onModelChange,
     onProviderChange,
     onMaxPriceChange,
     onRegionChange,
@@ -61,7 +76,7 @@ export default function MarketplaceSidebar(props: MarketplaceSidebarProps) {
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">GPU Family</p>
             <div className="grid grid-cols-2 gap-2">
-              {FAMILIES.map((item) => (
+              {["All", ...families].map((item) => (
                 <button
                   key={item}
                   type="button"
@@ -72,7 +87,38 @@ export default function MarketplaceSidebar(props: MarketplaceSidebarProps) {
                       : "border-white/8 bg-black/15 text-muted-foreground hover:text-white"
                   }`}
                 >
-                  {item === "All" ? "全部" : item}
+                  {item === "All" ? "全部" : familyLabel(item)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">GPU Model</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onModelChange("all")}
+                className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                  selectedModel === "all"
+                    ? "border-[#8A5CF5] bg-[#8A5CF5]/15 text-white"
+                    : "border-white/8 bg-black/15 text-muted-foreground hover:text-white"
+                }`}
+              >
+                全部
+              </button>
+              {models.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => onModelChange(item)}
+                  className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                    selectedModel === item
+                      ? "border-[#8A5CF5] bg-[#8A5CF5]/15 text-white"
+                      : "border-white/8 bg-black/15 text-muted-foreground hover:text-white"
+                  }`}
+                >
+                  {item}
                 </button>
               ))}
             </div>
@@ -81,7 +127,7 @@ export default function MarketplaceSidebar(props: MarketplaceSidebarProps) {
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Provider</p>
             <div className="flex flex-wrap gap-2">
-              {PROVIDERS.map((item) => (
+              {["all", ...providers].map((item) => (
                 <button
                   key={item}
                   type="button"

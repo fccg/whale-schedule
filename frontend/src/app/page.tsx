@@ -8,12 +8,28 @@ import MarketplaceSidebar from "@/components/market/MarketplaceSidebar";
 import MarketplaceToolbar from "@/components/market/MarketplaceToolbar";
 import GpuOfferRow from "@/components/market/GpuOfferRow";
 
+const FAMILY_ORDER = ["A", "H", "RTX", "OTHER"];
+
+function sortFamilies(items: string[]) {
+  return [...items].sort((a, b) => {
+    const aIndex = FAMILY_ORDER.indexOf(a);
+    const bIndex = FAMILY_ORDER.indexOf(b);
+    const safeA = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
+    const safeB = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
+    return safeA - safeB || a.localeCompare(b);
+  });
+}
+
 export default function GPUListPage() {
   const router = useRouter();
   const [gpus, setGpus] = useState<GPUOffering[]>([]);
+  const [families, setFamilies] = useState<string[]>([]);
+  const [models, setModels] = useState<string[]>([]);
+  const [providers, setProviders] = useState<string[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [family, setFamily] = useState("All");
+  const [model, setModel] = useState("all");
   const [provider, setProvider] = useState("all");
   const [maxPrice, setMaxPrice] = useState(20);
   const [region, setRegion] = useState("all");
@@ -33,17 +49,39 @@ export default function GPUListPage() {
     try {
       const params: Record<string, string> = {};
       if (family !== "All") params.family = family;
+      if (model !== "all") params.model = model;
       if (provider !== "all") params.provider = provider;
       if (region !== "all") params.region = region;
       if (maxPrice < 20) params.max_price = String(maxPrice);
       if (search) params.search = search;
       const res = await api.getGPUs(params);
+      const nextFamilies = sortFamilies(res.filters.families);
+      const nextModels = [...res.filters.models];
+      const nextProviders = [...res.filters.providers];
+      const nextRegions = [...res.filters.regions];
+
+      setFamilies(nextFamilies);
+      setModels(nextModels);
+      setProviders(nextProviders);
+      setRegions(nextRegions);
       setGpus(sortItems(res.items, sort));
-      setRegions(res.filters.regions);
+
+      if (family !== "All" && !nextFamilies.includes(family)) {
+        setFamily("All");
+      }
+      if (model !== "all" && !nextModels.includes(model)) {
+        setModel("all");
+      }
+      if (provider !== "all" && !nextProviders.includes(provider)) {
+        setProvider("all");
+      }
+      if (region !== "all" && !nextRegions.includes(region)) {
+        setRegion("all");
+      }
     } finally {
       setLoading(false);
     }
-  }, [family, provider, region, maxPrice, search, sort, sortItems]);
+  }, [family, model, provider, region, maxPrice, search, sort, sortItems]);
 
   useEffect(() => {
     if (!getToken()) {
@@ -64,14 +102,19 @@ export default function GPUListPage() {
       <div className="mx-auto flex max-w-[1600px] gap-6 px-4 py-8">
         <MarketplaceSidebar
           search={search}
+          families={families}
           family={family}
+          models={models}
+          selectedModel={model}
           maxPrice={maxPrice}
+          providers={providers}
           provider={provider}
           availableOnly={availableOnly}
           regions={regions}
           selectedRegion={region}
           onSearchChange={setSearch}
           onFamilyChange={setFamily}
+          onModelChange={setModel}
           onProviderChange={setProvider}
           onMaxPriceChange={setMaxPrice}
           onRegionChange={setRegion}
@@ -79,7 +122,14 @@ export default function GPUListPage() {
         />
 
         <div className="min-w-0 flex-1 space-y-4">
-          <MarketplaceToolbar total={filtered.length} family={family} onFamilyChange={setFamily} sort={sort} onSortChange={setSort} />
+          <MarketplaceToolbar
+            total={filtered.length}
+            families={families}
+            family={family}
+            onFamilyChange={setFamily}
+            sort={sort}
+            onSortChange={setSort}
+          />
 
           {loading ? (
             <div className="rounded-2xl border border-white/8 bg-[#141414] p-8 text-muted-foreground">加载中...</div>
