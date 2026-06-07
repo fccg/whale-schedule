@@ -1,9 +1,11 @@
+import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.models.user import create_user, verify_password
 from app.middleware.auth import create_token, require_auth
 from fastapi import Request, Depends
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -32,7 +34,9 @@ async def register(body: RegisterRequest):
 async def login(body: LoginRequest):
     user = await verify_password(body.username, body.password)
     if user is None:
+        logger.warning("Login failed: user=%s", body.username)
         raise HTTPException(status_code=401, detail={"error": "INVALID_CREDENTIALS", "message": "Invalid username or password"})
+    logger.info("Login success: user=%s", body.username)
     token = create_token(user["id"], user["username"])
     return {"token": token, "user": user}
 

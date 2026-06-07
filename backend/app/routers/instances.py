@@ -36,6 +36,9 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
             "message": f"Provider {provider_name} is not enabled",
         })
 
+    logger.info("Instance create started: user=%s provider=%s offering=%s",
+                request.state.user_id, provider_name, body.gpu_offering_id)
+
     estimated_total = offering["price_per_hour"] * body.duration_h
     if not await check_budget(request.state.user_id, estimated_total):
         raise HTTPException(status_code=422, detail={
@@ -69,6 +72,8 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
         provider_result = await provider.create_instance(body.gpu_offering_id, config)
         provider_instance_id = provider_result["provider_instance_id"]
     except Exception as e:
+        logger.warning("Instance create provider failed: user=%s provider=%s error=%s",
+                       request.state.user_id, provider_name, e)
         raise HTTPException(status_code=502, detail={
             "error": "PROVIDER_ERROR",
             "message": f"Provider failed to create instance: {str(e)}",
@@ -90,6 +95,8 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
     )
 
     await log_budget(request.state.user_id, instance["id"], "create", estimated_total)
+    logger.info("Instance created: id=%s user=%s provider=%s",
+                instance["id"], request.state.user_id, provider_name)
     start_lifecycle_advance(instance["id"])
 
     try:
@@ -149,12 +156,15 @@ async def delete(request: Request, instance_id: str, _payload: dict = Depends(re
             "error": "PROVIDER_DISABLED",
             "message": f"Provider {instance['provider']} is not enabled",
         })
+    logger.info("Instance destroy started: id=%s provider=%s user=%s",
+                instance_id, instance["provider"], request.state.user_id)
     provider = get_provider(instance["provider"])
     try:
         await provider.destroy_instance(instance["provider_instance_id"])
     except Exception as e:
         logger.warning(f"Provider destroy failed for {instance_id}: {e}", exc_info=True)
     await destroy_instance(instance_id)
+    logger.info("Instance destroyed: id=%s", instance_id)
     return {"status": "destroyed"}
 
 

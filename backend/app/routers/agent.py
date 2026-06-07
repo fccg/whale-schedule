@@ -22,6 +22,10 @@ async def heartbeat(payload: dict):
             "error": "FORBIDDEN",
             "message": "Invalid agent token",
         })
+    has_metrics = any(k in payload for k in ("cpu_percent", "gpus"))
+    has_bootstrap = "bootstrap_status" in payload
+    logger.debug("Heartbeat received: instance=%s bootstrap=%s metrics=%s",
+                 instance_id, has_bootstrap, has_metrics)
     await handle_heartbeat(instance_id, payload)
     return {"status": "ok"}
 

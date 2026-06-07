@@ -1,5 +1,8 @@
+import logging
 import os
 import aiosqlite
+
+logger = logging.getLogger(__name__)
 
 _db: aiosqlite.Connection | None = None
 
@@ -21,8 +24,12 @@ async def get_db() -> aiosqlite.Connection:
             try:
                 await _db.execute(migration)
                 await _db.commit()
-            except Exception:
-                pass
+            except Exception as e:
+                msg = str(e).lower()
+                if any(hint in msg for hint in ("duplicate column", "already exists")):
+                    logger.info("Migration already applied, skipping: %s", migration[:80])
+                else:
+                    logger.warning("Migration failed, skipping: %s", migration[:80], exc_info=True)
     return _db
 
 
