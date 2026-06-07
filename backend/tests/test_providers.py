@@ -132,6 +132,19 @@ def test_autodl_gpu_spec_uuid_mapping_uses_official_table():
     assert provider._resolve_gpu_spec_uuid("4090D") == "4090D"
 
 
+def test_autodl_launch_templates_use_official_image_uuid_catalog():
+    from app.services.market_service import get_launch_templates, get_recommended_template
+
+    offering = {"provider": "autodl"}
+    templates = get_launch_templates(offering)
+    recommended = get_recommended_template(offering)
+
+    assert recommended["id"] == "autodl-pytorch-2-0-cuda11-8"
+    assert recommended["image_uuid"] == "base-image-l2t43iu6uk"
+    assert any(template["image_uuid"] == "base-image-l2843iu23k" for template in templates)
+    assert all("image_uuid" in template for template in templates)
+
+
 def test_provider_registry_has_mock():
     from app.services.provider_registry import get_provider, get_active_provider_names, is_provider_enabled
     assert is_provider_enabled("mock")

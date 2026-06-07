@@ -124,7 +124,7 @@ Success (200):
   "offering": { "id": "autodl-rtx4090-1", "provider": "autodl", ... },
   "templates": [...],
   "defaults": {
-    "template_id": "pytorch",
+    "template_id": "autodl-pytorch-2-0-cuda11-8",
     "disk_gb": 250,
     "duration_h": 6
   },
@@ -145,7 +145,9 @@ Success (200):
     "price_per_hour": 3.2
   },
   "recommended_config": {
-    "template": "nvidia/pytorch:26.03-py3",
+    "template_id": "autodl-pytorch-2-0-cuda11-8",
+    "template": "cuda11.8-cudnn8-devel-ubuntu20.04-py38-torch2.0.0",
+    "image_uuid": "base-image-l2t43iu6uk",
     "disk_gb": 250,
     "duration_h": 6
   }
@@ -157,6 +159,7 @@ Success (200):
 - `funding.wallet_balance` 是 Provider 实时钱包余额
 - `funding.provider_budget_remaining` 是平台对该 Provider 的内部额度剩余，未配置时为 `null`
 - AutoDL 启动页应以 `funding` 为主；`budget` 仅为兼容字段
+- AutoDL 的 `templates` 项使用官方基础镜像做底层数据源，前端展示名与真实 `image_uuid` 一一绑定
 
 ### 5.3 创建实例 — `POST /api/instances`
 
@@ -170,7 +173,8 @@ Content-Type: application/json
 
 {
   "gpu_offering_id": "autodl-rtx4090-1",
-  "template": "nvidia/pytorch:26.03-py3",
+  "template": "cuda11.8-cudnn8-devel-ubuntu20.04-py38-torch2.0.0",
+  "image_uuid": "base-image-l2t43iu6uk",
   "disk_gb": 200,
   "duration_h": 1
 }

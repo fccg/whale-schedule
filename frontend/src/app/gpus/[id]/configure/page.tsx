@@ -57,6 +57,7 @@ export default function ConfigurePage() {
       const res = await api.createInstance({
         gpu_offering_id: id,
         template: selectedTemplate.image,
+        image_uuid: selectedTemplate.image_uuid ?? undefined,
         disk_gb: diskGb,
         duration_h: durationH,
       });

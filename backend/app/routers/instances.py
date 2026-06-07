@@ -25,6 +25,7 @@ def _resolve_limiting_factor(wallet_balance: float, provider_budget_remaining: f
 class CreateInstanceRequest(BaseModel):
     gpu_offering_id: str
     template: str = "nvidia/pytorch:26.03-py3"
+    image_uuid: str | None = None
     disk_gb: int = 200
     duration_h: int = 1
 
@@ -70,7 +71,7 @@ async def create(request: Request, body: CreateInstanceRequest, _payload: dict =
         "disk_gb": body.disk_gb,
         "duration_h": body.duration_h,
         "gpu_spec_uuid": metadata.get("gpu_spec_uuid", ""),
-        "image_uuid": metadata.get("image_uuid", ""),
+        "image_uuid": body.image_uuid or metadata.get("image_uuid", ""),
         "cuda_v_from": metadata.get("cuda_v_from", 113),
         "gpu_amount": metadata.get("gpu_amount", 1),
         "instance_name": f"schedule-{body.gpu_offering_id[:12]}",

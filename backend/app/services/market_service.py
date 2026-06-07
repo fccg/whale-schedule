@@ -33,7 +33,7 @@ PROVIDER_META = {
     },
 }
 
-TEMPLATES = [
+GENERIC_TEMPLATES = [
     {
         "id": "pytorch",
         "label": "NVIDIA PyTorch",
@@ -60,6 +60,139 @@ TEMPLATES = [
     },
 ]
 
+AUTODL_TEMPLATES = [
+    {
+        "id": "autodl-pytorch-2-0-cuda11-8",
+        "label": "PyTorch 2.0 / CUDA 11.8",
+        "image": "cuda11.8-cudnn8-devel-ubuntu20.04-py38-torch2.0.0",
+        "image_uuid": "base-image-l2t43iu6uk",
+        "framework": "PyTorch",
+        "description": "推荐用于主流训练与推理任务，兼顾兼容性和稳定性。",
+        "highlights": ["PyTorch", "CUDA 11.8", "Ubuntu 20.04"],
+        "recommended": True,
+    },
+    {
+        "id": "autodl-pytorch-1-11-cuda11-3",
+        "label": "PyTorch 1.11 / CUDA 11.3",
+        "image": "cuda11.3-cudnn8-devel-ubuntu20.04-py38-torch1.11.0",
+        "image_uuid": "base-image-l374uiucui",
+        "framework": "PyTorch",
+        "description": "适合偏保守依赖栈或旧项目迁移场景。",
+        "highlights": ["PyTorch", "CUDA 11.3", "Ubuntu 20.04"],
+        "recommended": False,
+    },
+    {
+        "id": "autodl-pytorch-1-10-cuda11-3",
+        "label": "PyTorch 1.10 / CUDA 11.3",
+        "image": "cuda11.3-cudnn8-devel-ubuntu20.04-py38-torch1.10.0",
+        "image_uuid": "base-image-u9r24vthlk",
+        "framework": "PyTorch",
+        "description": "适合需要较老 PyTorch 版本的训练脚本。",
+        "highlights": ["PyTorch", "CUDA 11.3", "Python 3.8"],
+        "recommended": False,
+    },
+    {
+        "id": "autodl-pytorch-1-9-cuda11-1",
+        "label": "PyTorch 1.9 / CUDA 11.1",
+        "image": "cuda11.1-cudnn8-devel-ubuntu18.04-py38-torch1.9.0",
+        "image_uuid": "base-image-12be412037",
+        "framework": "PyTorch",
+        "description": "适合更老的训练环境与兼容性排障。",
+        "highlights": ["PyTorch", "CUDA 11.1", "Ubuntu 18.04"],
+        "recommended": False,
+    },
+    {
+        "id": "autodl-tensorflow-2-9-cuda11-2",
+        "label": "TensorFlow 2.9 / CUDA 11.2",
+        "image": "cuda11.2-cudnn8-devel-ubuntu20.04-py38-tf2.9.0",
+        "image_uuid": "base-image-uxeklgirir",
+        "framework": "TensorFlow",
+        "description": "适合常见 TensorFlow 训练与推理工作负载。",
+        "highlights": ["TensorFlow", "CUDA 11.2", "Ubuntu 20.04"],
+        "recommended": False,
+    },
+    {
+        "id": "autodl-tensorflow-2-5-cuda11-2",
+        "label": "TensorFlow 2.5 / CUDA 11.2",
+        "image": "cuda11.2-cudnn8-devel-ubuntu18.04-py38-tf2.5.0",
+        "image_uuid": "base-image-0gxqmciyth",
+        "framework": "TensorFlow",
+        "description": "适合较老 TensorFlow 工程与兼容场景。",
+        "highlights": ["TensorFlow", "CUDA 11.2", "Ubuntu 18.04"],
+        "recommended": False,
+    },
+    {
+        "id": "autodl-tensorflow-1-15-cuda11-4",
+        "label": "TensorFlow 1.15 / CUDA 11.4",
+        "image": "cuda11.4-py38-tf1.15.5",
+        "image_uuid": "base-image-4bpg0tt88l",
+        "framework": "TensorFlow",
+        "description": "适合仍依赖 TensorFlow 1.x 的老项目维护。",
+        "highlights": ["TensorFlow", "CUDA 11.4", "Python 3.8"],
+        "recommended": False,
+    },
+    {
+        "id": "autodl-miniconda-cuda11-6",
+        "label": "Miniconda / CUDA 11.6",
+        "image": "cuda11.6-cudnn8-devel-ubuntu20.04-py38",
+        "image_uuid": "base-image-mbr2n4urrc",
+        "framework": "Miniconda",
+        "description": "适合自定义依赖安装和环境管理。",
+        "highlights": ["Miniconda", "CUDA 11.6", "Ubuntu 20.04"],
+        "recommended": False,
+    },
+    {
+        "id": "autodl-miniconda-cuda11-3-gl",
+        "label": "Miniconda / CUDA GL 11.3",
+        "image": "cudagl11.3-cudnn8-devel-ubuntu20.04-py38",
+        "image_uuid": "base-image-7bn8iqhkb5",
+        "framework": "Miniconda",
+        "description": "适合需要图形栈或可视化依赖的容器环境。",
+        "highlights": ["Miniconda", "CUDA GL 11.3", "Ubuntu 20.04"],
+        "recommended": False,
+    },
+    {
+        "id": "autodl-miniconda-cuda11-1",
+        "label": "Miniconda / CUDA 11.1",
+        "image": "cuda11.1-cudnn8-devel-ubuntu18.04-py38",
+        "image_uuid": "base-image-h041hn36yt",
+        "framework": "Miniconda",
+        "description": "适合较老 CUDA 依赖的自定义环境。",
+        "highlights": ["Miniconda", "CUDA 11.1", "Ubuntu 18.04"],
+        "recommended": False,
+    },
+    {
+        "id": "autodl-miniconda-cuda10-2",
+        "label": "Miniconda / CUDA 10.2",
+        "image": "cuda10.2-cudnn7-devel-ubuntu18.04-py38",
+        "image_uuid": "base-image-qkkhitpik5",
+        "framework": "Miniconda",
+        "description": "适合必须固定在 CUDA 10.2 的老项目。",
+        "highlights": ["Miniconda", "CUDA 10.2", "Ubuntu 18.04"],
+        "recommended": False,
+    },
+    {
+        "id": "autodl-miniconda-cuda9-0",
+        "label": "Miniconda / CUDA 9.0",
+        "image": "cuda9.0-cudnn7-devel-ubuntu16.04-py36",
+        "image_uuid": "base-image-k0vep6kyq8",
+        "framework": "Miniconda",
+        "description": "仅用于极老依赖栈排障或兼容需求。",
+        "highlights": ["Miniconda", "CUDA 9.0", "Ubuntu 16.04"],
+        "recommended": False,
+    },
+    {
+        "id": "autodl-tensorrt-8-5-cuda11-8",
+        "label": "TensorRT 8.5 / CUDA 11.8",
+        "image": "cuda11.8-cudnn8-devel-ubuntu20.04-py38-trt8.5.1",
+        "image_uuid": "base-image-l2843iu23k",
+        "framework": "TensorRT",
+        "description": "适合 TensorRT 推理优化与部署验证。",
+        "highlights": ["TensorRT", "CUDA 11.8", "Ubuntu 20.04"],
+        "recommended": False,
+    },
+]
+
 
 def _family_badges(family: str) -> list[str]:
     mapping = {
@@ -68,6 +201,20 @@ def _family_badges(family: str) -> list[str]:
         "RTX": ["cost-effective", "inference"],
     }
     return mapping.get(family, ["general"])
+
+
+def get_launch_templates(offering: dict) -> list[dict]:
+    if offering.get("provider") == "autodl":
+        return [template.copy() for template in AUTODL_TEMPLATES]
+    return [template.copy() for template in GENERIC_TEMPLATES]
+
+
+def get_recommended_template(offering: dict) -> dict:
+    templates = get_launch_templates(offering)
+    for template in templates:
+        if template.get("recommended"):
+            return template
+    return templates[0]
 
 
 def _enrich_offering(row: dict) -> dict:
@@ -222,12 +369,14 @@ async def get_launch_payload(offering_id: str) -> dict | None:
         return None
     default_duration_h = 6
     default_disk_gb = max(200, int(offering.get("disk_gb", 200) / 2))
+    templates = get_launch_templates(offering)
+    recommended_template = get_recommended_template(offering)
     funding = await build_funding_summary(offering, default_duration_h)
     return {
         "offering": offering,
-        "templates": TEMPLATES,
+        "templates": templates,
         "defaults": {
-            "template_id": "pytorch",
+            "template_id": recommended_template["id"],
             "disk_gb": default_disk_gb,
             "duration_h": default_duration_h,
         },
@@ -238,7 +387,9 @@ async def get_launch_payload(offering_id: str) -> dict | None:
             "price_per_hour": offering["price_per_hour"],
         },
         "recommended_config": {
-            "template": "nvidia/pytorch:26.03-py3",
+            "template_id": recommended_template["id"],
+            "template": recommended_template["image"],
+            "image_uuid": recommended_template.get("image_uuid"),
             "disk_gb": default_disk_gb,
             "duration_h": default_duration_h,
         },

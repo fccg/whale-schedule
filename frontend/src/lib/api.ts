@@ -71,7 +71,7 @@ export const api = {
 
   getLaunchPayload: (id: string) => request<LaunchPayload>(`/api/gpus/${id}/launch`),
 
-  createInstance: (data: { gpu_offering_id: string; template?: string; disk_gb?: number; duration_h?: number }) =>
+  createInstance: (data: { gpu_offering_id: string; template?: string; image_uuid?: string; disk_gb?: number; duration_h?: number }) =>
     request<{ instance: Instance; estimated_cost: number; funding: FundingSummary }>("/api/instances", {
       method: "POST",
       body: JSON.stringify(data),
@@ -243,6 +243,8 @@ export interface TemplateOption {
   id: string;
   label: string;
   image: string;
+  image_uuid?: string | null;
+  framework?: string | null;
   description: string;
   highlights: string[];
   recommended: boolean;
@@ -275,7 +277,9 @@ export interface LaunchPayload {
     price_per_hour: number;
   };
   recommended_config: {
+    template_id?: string;
     template: string;
+    image_uuid?: string | null;
     disk_gb: number;
     duration_h: number;
   };
